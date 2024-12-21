@@ -58,9 +58,8 @@ from src.hardware.serialhandler.processSerialHandler import processSerialHandler
 from src.data.Semaphores.Semaphores import processSemaphores
 from src.data.TrafficCommunication.processTrafficCommunication import processTrafficCommunication
 from src.utils.ipManager.IpReplacement import IPManager
-# ------ New component imports starts here ------#
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
-# ------ New component imports ends here ------#
+from src.ComputerVision.LaneDetection import processLaneDetection
 # ======================================== SETTING UP ====================================
 allProcesses = list()
 
@@ -81,6 +80,7 @@ SerialHandler = True
 
 # ------ New component flags starts here ------#
 DecisionMaker = True
+LaneDetection = True
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================
@@ -124,6 +124,10 @@ if SerialHandler:
 if DecisionMaker:
     processDecisionMaker = processDecisionMaker(queueList, logging, debugging = False)
     allProcesses.append(processDecisionMaker)
+
+if LaneDetection:
+    processLaneDetection = processLaneDetection(queueList, logging, debugging = False)
+    allProcesses.append(processLaneDetection)
 # ------ New component runs ends here ------#
 
 # ===================================== START PROCESSES ==================================
