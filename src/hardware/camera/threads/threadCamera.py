@@ -179,7 +179,7 @@ class threadCamera(ThreadWithStop):
             buffer_count=1,
             queue=False,
             main={"format": "RGB888", "size": (2048, 1080)},
-            lores={"size": (512, 270)},
+            lores={"size": (640, 480)},
             encode="lores",
         )
         self.camera.configure(config)

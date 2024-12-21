@@ -24,7 +24,7 @@ class threadLaneDetection(ThreadWithStop):
     def run(self):
         while self._running:
             image = self.subscribers[serialCamera].receive()
-            processor = LaneDetectionProcessor(type="real")
+            processor = LaneDetectionProcessor(type="simulador")
             out = processor.process_image(image)
             cv2.imshow("out", out)
             
