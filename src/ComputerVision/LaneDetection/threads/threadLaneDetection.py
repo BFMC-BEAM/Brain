@@ -3,7 +3,7 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (mainCamera, serialCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
-from lane_detection import LaneDetectionProcessor
+from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
 
 class threadLaneDetection(ThreadWithStop):
     """This thread handles LaneDetection.

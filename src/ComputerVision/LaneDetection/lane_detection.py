@@ -2,8 +2,7 @@ import cv2
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from image_processor_interface import ImageProcessorInterface
-from sklearn.linear_model import RANSACRegressor
+from src.ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
 
 
 class LaneDetectionProcessor(ImageProcessorInterface):
