@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import math
-import matplotlib.pyplot as plt
 from src.ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
 
 

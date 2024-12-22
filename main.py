@@ -59,7 +59,7 @@ from src.data.Semaphores.Semaphores import processSemaphores
 from src.data.TrafficCommunication.processTrafficCommunication import processTrafficCommunication
 from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
-from src.ComputerVision.LaneDetection import processLaneDetection
+from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
 # ======================================== SETTING UP ====================================
 allProcesses = list()
 

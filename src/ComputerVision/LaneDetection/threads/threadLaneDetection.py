@@ -19,6 +19,7 @@ class threadLaneDetection(ThreadWithStop):
         self.debugging = debugging
         self.subscribe()
         self.subscribers = {}
+        self.image_sender = messageHandlerSender(self.queuesList, serialCamera)
         super(threadLaneDetection, self).__init__()
 
     def run(self):
@@ -26,7 +27,8 @@ class threadLaneDetection(ThreadWithStop):
             image = self.subscribers[serialCamera].receive()
             processor = LaneDetectionProcessor(type="simulador")
             out = processor.process_image(image)
-            cv2.imshow("out", out)
+            #self.image_sender.send(out)
+
             
 
     def subscribe(self):
