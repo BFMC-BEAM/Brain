@@ -1,3 +1,4 @@
+from decision.distance.distanceModule import DistanceModule
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (CurrentSpeed, SpeedMotor, Ultra, mainCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -16,6 +17,7 @@ class threadDecisionMaker(ThreadWithStop):
         self.debugging = debugging
         self.currentSpeed = "0"
         self.subscribers = {}
+        self.distanceModule = DistanceModule()
         self.speedSender = messageHandlerSender(self.queuesList, SpeedMotor)
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
@@ -24,9 +26,10 @@ class threadDecisionMaker(ThreadWithStop):
         while self._running:
             ultraVals = self.subscribers["Ultra"].receive()
             self.currentSpeed  = self.subscribers["CurrentSpeed"].receive() or self.currentSpeed 
-            if ultraVals is not None:
-                if ultraVals["top"] < 30 and int(self.currentSpeed) > 0:
-                    self.speedSender.send("0") #stop the vehicle if front distance is less than 30 cm 
+            targetSpeed, targetSteer = self.distanceModule.check_distance(ultraVals,self.currentSpeed)
+            if targetSpeed is not None:
+                self.speedSender.send(targetSpeed)
+
             
 
     def subscribe(self):
