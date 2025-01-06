@@ -249,5 +249,10 @@ class WarningSignal(Enum):
     Owner = "brain"
     msgID = 3
     msgType = "str"
-
+######################    From ComputerVision  ###########################
+class CVCamera(Enum):
+    Queue = "General"
+    Owner = "ComputerVision"
+    msgID = 1
+    msgType = "str"
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
