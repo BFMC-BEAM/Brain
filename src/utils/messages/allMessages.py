@@ -251,3 +251,16 @@ class WarningSignal(Enum):
     msgType = "str"
 
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
+
+######################    From DecisionMaker  ###########################
+class SetSpeed(Enum):
+    Queue = "General"
+    Owner = "DecisionMaker"
+    msgID = 1
+    msgType = "str"
+
+class SetSteer(Enum):
+    Queue = "General"
+    Owner = "DecisionMaker"
+    msgID = 2
+    msgType = "str"

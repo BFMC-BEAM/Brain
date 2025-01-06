@@ -35,6 +35,8 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (
     Klem,
     Control,
+    SetSpeed,
+    SetSteer,
     SteerMotor,
     SpeedMotor,
     Brake,
@@ -88,8 +90,8 @@ class threadWrite(ThreadWithStop):
 
         self.klSubscriber = messageHandlerSubscriber(self.queuesList, Klem, "lastOnly", True)
         self.controlSubscriber = messageHandlerSubscriber(self.queuesList, Control, "lastOnly", True)
-        self.steerMotorSubscriber = messageHandlerSubscriber(self.queuesList, SteerMotor, "lastOnly", True)
-        self.speedMotorSubscriber = messageHandlerSubscriber(self.queuesList, SpeedMotor, "lastOnly", True)
+        self.steerMotorSubscriber = messageHandlerSubscriber(self.queuesList, SetSteer, "lastOnly", True)
+        self.speedMotorSubscriber = messageHandlerSubscriber(self.queuesList, SetSpeed, "lastOnly", True)
         self.brakeSubscriber = messageHandlerSubscriber(self.queuesList, Brake, "lastOnly", True)
         self.instantSubscriber = messageHandlerSubscriber(self.queuesList, ToggleInstant, "lastOnly", True)
         self.batterySubscriber = messageHandlerSubscriber(self.queuesList, ToggleBatteryLvl, "lastOnly", True)
