@@ -254,13 +254,13 @@ class WarningSignal(Enum):
 
 ######################    From DecisionMaker  ###########################
 class SetSpeed(Enum):
-    Queue = "General"
+    Queue = "Critical"
     Owner = "DecisionMaker"
     msgID = 1
     msgType = "str"
 
 class SetSteer(Enum):
-    Queue = "General"
+    Queue = "Critical"
     Owner = "DecisionMaker"
     msgID = 2
     msgType = "str"
