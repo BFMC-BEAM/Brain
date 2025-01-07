@@ -1,4 +1,4 @@
-from decision.distance.distanceModule import DistanceModule
+from src.decision.distance.distanceModule import DistanceModule
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
