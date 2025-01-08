@@ -1,7 +1,7 @@
 class DistanceModule():
     def __init__(self):
         self.min_distance = 5
-        self.speed_increment = 5
+        self.speed_increment = 50
         self.mult_increment = 0.4
         
     def check_distance(self, ultraVals, currentSpeed, currentSteer):
@@ -19,4 +19,5 @@ class DistanceModule():
         mult = 1
         if absSpeed > self.speed_increment:
             mult = (absSpeed / self.speed_increment) * self.mult_increment  + 1
+        
         return mult
