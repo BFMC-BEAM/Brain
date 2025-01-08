@@ -15,7 +15,7 @@ class DistanceModule():
         return (currentSpeed,currentSteer)
     
     def get_multiplier(self, currentSpeed):
-        absSpeed= abs(currentSpeed)
+        absSpeed= abs(int(currentSpeed))
         mult = 1
         if absSpeed > self.speed_increment:
             mult = (absSpeed / self.speed_increment) * self.mult_increment  + 1
