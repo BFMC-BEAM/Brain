@@ -80,7 +80,7 @@ SerialHandler = True
 
 # ------ New component flags starts here ------#
 DecisionMaker = True
-LaneDetection = True
+LaneDetection = False
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================

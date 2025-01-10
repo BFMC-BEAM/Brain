@@ -32,7 +32,9 @@ import base64
 import picamera2
 import time
 
+from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
 from src.utils.messages.allMessages import (
+    CVCamera,
     mainCamera,
     serialCamera,
     Recording,
@@ -66,7 +68,8 @@ class threadCamera(ThreadWithStop):
 
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
-        self.serialCameraSender = messageHandlerSender(self.queuesList, serialCamera)
+        self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
+        self.processor = LaneDetectionProcessor(type="simulator")
 
         self.subscribe()
         self._init_camera()
@@ -154,10 +157,11 @@ class threadCamera(ThreadWithStop):
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
+                out = self.processor.process_image(serialRequest)
 
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
-                _, serialEncodedImg = cv2.imencode(".jpg", serialRequest)
-
+                _, serialEncodedImg = cv2.imencode(".jpg", out)
+ 
                 mainEncodedImageData = base64.b64encode(mainEncodedImg).decode("utf-8")
                 serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
 

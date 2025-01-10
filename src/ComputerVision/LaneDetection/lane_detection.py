@@ -203,8 +203,8 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             debug_image = cv2.addWeighted(image, 1 - alpha, debug_image, alpha, 0)
 
             # Display the debug visualization
-            cv2.imshow("ROI Debug", debug_image)
-
+            return debug_image
+        
         return masked_image
 
     def _warp_image(self, image):
@@ -761,7 +761,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         border_image = self._preprocessing(
             lane_image
         )  # Apply preprocessing (e.g., edge detection)
-
         # Extract the region of interest (ROI) for the road
         cropped_image = self._get_ROI_road(border_image)
 
@@ -794,7 +793,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             None,
         )
         new_left_line, new_right_line = None, None
-
+        #print (lines)
         if lines is not None:
             # Classify lines into average and non-average left/right lanes
             (
@@ -812,6 +811,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
         # If lines are detected, process and draw them
         if avg_lines is not None:
+            #print("entro al avg_lines")
             # Draw averaged lane lines
             avg_line_image = self._display_lines(lane_image, avg_lines, AVG_LINE_COLOR)
 

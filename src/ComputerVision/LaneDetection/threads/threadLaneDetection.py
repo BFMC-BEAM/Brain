@@ -22,7 +22,7 @@ class threadLaneDetection(ThreadWithStop):
         self.subscribers = {}
         self.subscribe()
         self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
-        self.processor = LaneDetectionProcessor(type="simulador")
+        self.processor = LaneDetectionProcessor(type="simulator")
         super(threadLaneDetection, self).__init__()
 
     def run(self):
@@ -38,11 +38,20 @@ class threadLaneDetection(ThreadWithStop):
                 # Convertir los bytes a un array de numpy
                 np_array = np.frombuffer(image_data, dtype=np.uint8)
 
-                # Decodificar el array de numpy a una imagen OpenCV
-                cv_image = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
+                # Decodificar el array numpy a una imagen OpenCV
+                cv_image = cv2.imdecode(np_array, cv2.COLOR_YUV2BGR_I420)  # Decodificar como imagen BGR
+                print("antes",cv_image.shape[0],cv_image.shape[1])
+                
+                if cv_image is None:
+                    print("Error: cv2.imdecode falló. Verifica el formato de la imagen.")
+                    continue
+                
+                # Procesar la imagen decodificada
                 out = self.processor.process_image(cv_image)
-                serialEncodedImageData = base64.b64encode(out).decode("utf-8")
 
+                # Volver a codificar el resultado si es necesario
+                _, encoded_output = cv2.imencode(".jpg", out)
+                serialEncodedImageData = base64.b64encode(encoded_output).decode("utf-8")
                 self.image_sender.send(serialEncodedImageData)
 
             
