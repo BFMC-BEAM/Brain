@@ -3,26 +3,79 @@ import numpy as np
 import math
 from src.ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
 
-
 class LaneDetectionProcessor(ImageProcessorInterface):
     """
     Image processor that detects and draws lane lines.
     """
-    
-    def __init__(
-        self,
-        type="simulator"
-    ):
+
+    def __init__(self, type="simulator"):
         """
         Initializes the lane processor with default or customized settings.
         """
-        self.type= type
+        self.type = type
         self.in_intersection = False
         self.M = None
         self.M_inv = None
         self.previous_left_line = None
         self.previous_right_line = None
+        self.in_curve = False
+        self.in_cross_walk = False
+        self.in_intersection = False
 
+    def _adjust_parameters(self, gray_image):
+        """
+        Adjusts the parameters for edge detection based on the lighting conditions 
+        of the input image using its histogram and intensity analysis.
+
+        Args:
+            gray_image (np.ndarray): Grayscale version of the input image.
+
+        Returns:
+            tuple: A pair of integers representing the low and high thresholds for Canny edge detection.
+        """
+        
+        # Constants for light condition thresholds
+        LOW_LIGHT_MEAN_THRESHOLD = 60  # Mean intensity threshold for low light conditions
+        NORMAL_LIGHT_MEAN_MIN = 60     # Minimum mean intensity for normal light conditions
+        NORMAL_LIGHT_MEAN_MAX = 150    # Maximum mean intensity for normal light conditions
+        HIGH_LIGHT_THRESHOLD = 0.5     # Percentage threshold for bright pixels to indicate high light
+        LOW_LIGHT_THRESHOLD = 0.5      # Percentage threshold for dark pixels to indicate low light
+
+        # Constants for Canny edge detection thresholds under different light conditions
+        CANNY_LOW_LIGHT = (20, 80)     # (low_threshold, high_threshold) for low light conditions
+        CANNY_NORMAL_LIGHT = (50, 150) # (low_threshold, high_threshold) for normal light conditions
+        CANNY_HIGH_LIGHT = (70, 200)   # (low_threshold, high_threshold) for high light conditions
+        CANNY_MIXED_LIGHT = (40, 120)  # Default values for mixed or unclear light conditions
+
+        # Calculate the histogram of the grayscale image
+        histogram = cv2.calcHist([gray_image], [0], None, [256], [0, 256])
+
+        # Compute the total number of pixels in the image
+        total_pixels = np.sum(histogram)
+
+        # Determine the proportion of low and high intensity pixels
+        low_intensity_pixels = np.sum(histogram[:50]) / total_pixels  # Proportion of dark pixels
+        high_intensity_pixels = np.sum(histogram[200:]) / total_pixels  # Proportion of bright pixels
+
+        # Calculate the mean intensity of the image
+        mean_intensity = np.mean(gray_image)
+        # print("intensidad media:", mean_intensity)
+        # Adjust the Canny thresholds based on light conditions
+        if mean_intensity < LOW_LIGHT_MEAN_THRESHOLD or low_intensity_pixels > LOW_LIGHT_THRESHOLD:
+            # Low light conditions
+            canny_low_threshold, canny_high_threshold = CANNY_LOW_LIGHT
+        elif NORMAL_LIGHT_MEAN_MIN <= mean_intensity <= NORMAL_LIGHT_MEAN_MAX \
+            and low_intensity_pixels < 0.3 and high_intensity_pixels < 0.3:
+            # Normal light conditions with balanced intensities
+            canny_low_threshold, canny_high_threshold = CANNY_NORMAL_LIGHT
+        elif high_intensity_pixels > HIGH_LIGHT_THRESHOLD:
+            # High light conditions
+            canny_low_threshold, canny_high_threshold = CANNY_HIGH_LIGHT
+        else:
+            # Mixed or unclear light conditions
+            canny_low_threshold, canny_high_threshold = CANNY_MIXED_LIGHT
+
+        return canny_low_threshold, canny_high_threshold
 
     def _preprocessing(self, image):
         """
@@ -44,7 +97,9 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
             # Lower and upper bound for white color in HLS
             LOWER_WHITE = np.array([0, 160, 10])  # Lower bound for white color in HLS
-            UPPER_WHITE = np.array([255, 255, 255])  # Upper bound for white color in HLS
+            UPPER_WHITE = np.array(
+                [255, 255, 255]
+            )  # Upper bound for white color in HLS
 
             # Create a mask for white colors in the HLS space
             mask = cv2.inRange(hls, LOWER_WHITE, UPPER_WHITE)
@@ -67,14 +122,15 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         blurred_image = cv2.GaussianBlur(binary_image, GAUSSIAN_BLUR_KERNEL, 0)
 
         # Perform Canny edge detection
+        CANNY_LOW_THRESHOLD, CANNY_HIGH_THRESHOLD = self._adjust_parameters(gray_image)
+
+
         CANNY_LOW_THRESHOLD = 50  # Low threshold for Canny edge detection
         CANNY_HIGH_THRESHOLD = 150  # High threshold for Canny edge detection
-        edges = cv2.Canny(
-            blurred_image, CANNY_LOW_THRESHOLD, CANNY_HIGH_THRESHOLD
-        )
+        edges = cv2.Canny(blurred_image, CANNY_LOW_THRESHOLD, CANNY_HIGH_THRESHOLD)
 
         return edges
-    
+
     def _get_ROI_road(self, image, show=False):
         """
         Extracts the Region of Interest (ROI) for the road from an image.
@@ -114,16 +170,18 @@ class LaneDetectionProcessor(ImageProcessorInterface):
                 RECTANGLE_BOTTOM_LEFT,
                 RECTANGLE_TOP_RIGHT,
                 255,  # White color for the mask
-                thickness=cv2.FILLED  # Fill the rectangle
+                thickness=cv2.FILLED,  # Fill the rectangle
             )
 
         # Define the triangular ROI as a numpy array
         triangle = np.array(
-            [[
-                TRIANGLE_BOTTOM_LEFT,
-                TRIANGLE_BOTTOM_RIGHT,
-                TRIANGLE_TOP_CENTER,
-            ]]
+            [
+                [
+                    TRIANGLE_BOTTOM_LEFT,
+                    TRIANGLE_BOTTOM_RIGHT,
+                    TRIANGLE_TOP_CENTER,
+                ]
+            ]
         )
 
         # Add the triangular area to the mask
@@ -149,59 +207,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
         return masked_image
 
-    def _get_ROI_intersection(self, image):
-        """
-        Extracts the Region of Interest (ROI) for intersections, dividing the image into left and right regions.
-
-        Args:
-            image (np.ndarray): Input image from which the ROI will be extracted.
-
-        Returns:
-            tuple: A tuple containing the left and right ROI images.
-        """
-        # Get the dimensions of the input image
-        height, width = image.shape[:2]
-
-        # Define constants for polygon boundaries
-        LEFT_POLYGON_TOP = 0  # Top edge of the left polygon
-        RIGHT_POLYGON_TOP = height // 3  # Top edge of the right polygon (one-third height)
-        CENTER_X = width // 2  # Horizontal center of the image
-
-        # Create empty masks for the left and right regions
-        left_mask = np.zeros_like(image)
-        right_mask = np.zeros_like(image)
-
-        # Define the polygon for the left region
-        lower_left_polygon = np.array([
-            [
-                (0, height),        # Bottom-left corner
-                (0, LEFT_POLYGON_TOP),  # Top-left edge
-                (CENTER_X, LEFT_POLYGON_TOP),  # Top-center edge
-                (CENTER_X, height)  # Bottom-center edge
-            ]
-        ], dtype=np.int32)
-
-        # Define the polygon for the right region
-        lower_right_polygon = np.array([
-            [
-                (CENTER_X, height),        # Bottom-center edge
-                (CENTER_X, RIGHT_POLYGON_TOP),  # Top-center edge
-                (width, RIGHT_POLYGON_TOP),    # Top-right edge
-                (width, height)           # Bottom-right corner
-            ]
-        ], dtype=np.int32)
-
-        # Fill the left polygon in the left mask
-        cv2.fillPoly(left_mask, [lower_left_polygon], 255)
-        left_image = cv2.bitwise_and(image, left_mask)  # Apply the left mask to the image
-
-        # Fill the right polygon in the right mask
-        cv2.fillPoly(right_mask, [lower_right_polygon], 255)
-        right_image = cv2.bitwise_and(image, right_mask)  # Apply the right mask to the image
-
-        # Return the masked images for the left and right regions
-        return left_image, right_image
-     
     def _warp_image(self, image):
         """
         Applies a perspective warp to the input image.
@@ -218,13 +223,22 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         # Constants for padding and source/destination points
         PADDING = 0  # Padding for the destination points
         SIMULATOR_SRC_TOP_LEFT = (50, 180)  # Top-left source point for simulator
-        SIMULATOR_SRC_BOTTOM_LEFT = (50, ysize)  # Bottom-left source point for simulator
-        SIMULATOR_SRC_BOTTOM_RIGHT = (550, ysize)  # Bottom-right source point for simulator
+        SIMULATOR_SRC_BOTTOM_LEFT = (
+            50,
+            ysize,
+        )  # Bottom-left source point for simulator
+        SIMULATOR_SRC_BOTTOM_RIGHT = (
+            550,
+            ysize,
+        )  # Bottom-right source point for simulator
         SIMULATOR_SRC_TOP_RIGHT = (550, 180)  # Top-right source point for simulator
 
         REAL_SRC_TOP_LEFT = (320, 180)  # Top-left source point for real-world
         REAL_SRC_BOTTOM_LEFT = (320, ysize)  # Bottom-left source point for real-world
-        REAL_SRC_BOTTOM_RIGHT = (1800, ysize)  # Bottom-right source point for real-world
+        REAL_SRC_BOTTOM_RIGHT = (
+            1800,
+            ysize,
+        )  # Bottom-right source point for real-world
         REAL_SRC_TOP_RIGHT = (1800, 180)  # Top-right source point for real-world
 
         # Destination points (common for both cases)
@@ -236,28 +250,29 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         # Define source and destination points based on the environment type
         if self.type == "simulator":
             # Source points for the simulator
-            src = np.float32([
-                SIMULATOR_SRC_TOP_LEFT,
-                SIMULATOR_SRC_BOTTOM_LEFT,
-                SIMULATOR_SRC_BOTTOM_RIGHT,
-                SIMULATOR_SRC_TOP_RIGHT
-            ])
+            src = np.float32(
+                [
+                    SIMULATOR_SRC_TOP_LEFT,
+                    SIMULATOR_SRC_BOTTOM_LEFT,
+                    SIMULATOR_SRC_BOTTOM_RIGHT,
+                    SIMULATOR_SRC_TOP_RIGHT,
+                ]
+            )
         else:
             # Source points for the real-world
-            src = np.float32([
-                REAL_SRC_TOP_LEFT,
-                REAL_SRC_BOTTOM_LEFT,
-                REAL_SRC_BOTTOM_RIGHT,
-                REAL_SRC_TOP_RIGHT
-            ])
+            src = np.float32(
+                [
+                    REAL_SRC_TOP_LEFT,
+                    REAL_SRC_BOTTOM_LEFT,
+                    REAL_SRC_BOTTOM_RIGHT,
+                    REAL_SRC_TOP_RIGHT,
+                ]
+            )
 
         # Destination points (same for both environments)
-        dst = np.float32([
-            DST_TOP_LEFT,
-            DST_BOTTOM_LEFT,
-            DST_BOTTOM_RIGHT,
-            DST_TOP_RIGHT
-        ])
+        dst = np.float32(
+            [DST_TOP_LEFT, DST_BOTTOM_LEFT, DST_BOTTOM_RIGHT, DST_TOP_RIGHT]
+        )
 
         # Compute the perspective transform matrix and its inverse
         self.M = cv2.getPerspectiveTransform(src, dst)
@@ -270,102 +285,154 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         (_, binary_warped) = cv2.threshold(warped, 127, 255, cv2.THRESH_BINARY)
 
         return binary_warped
-   
-    def _avg_slope_intercept(self, image, lines):
+
+    def _filter_outliers(self, fits, lines, image, window_name=None):
         """
-        Averages and processes the slopes and intercepts of detected lines 
-        to produce two representative lane lines (left and right).
+        Filters out line fits that are outliers based only on the intercept.
 
         Args:
-            image (np.ndarray): Input image used for line detection.
-            lines (list): List of detected lines represented by their endpoints.
+            fits (list): List of tuples containing (slope, intercept).
+            lines (list): List of original lines corresponding to fits.
+            image (np.ndarray): Original image used for visualization.
+            window_name (str): Name of the window to display filtered lines.
+            threshold (float): Number of standard deviations to use for filtering.
 
         Returns:
-            tuple: 
-                - np.ndarray: Array containing the new left and right lane lines.
-                - list: Non-averaged left lines.
-                - list: Non-averaged right lines.
+            list: Filtered list of fits.
         """
-        # Lists to store line fits and raw line segments
+        intercepts = np.array([fit[1] for fit in fits])
+
+        intercept_mean = np.mean(intercepts)
+
+        # Filter fits based on the intercept threshold
+        filtered_fits = []
+        filtered_lines = []
+        for fit, line in zip(fits, lines):
+            if abs(fit[1] - intercept_mean) <= 200 or len(filtered_fits) == 0:
+                filtered_fits.append(fit)
+            else:
+                filtered_lines.append(line)
+
+        # Display filtered lines on the image
+        if filtered_lines and window_name is not None:
+            filtered_image = image.copy()
+            for line in filtered_lines:
+                x1, y1, x2, y2 = line
+
+                # Unwarp the line coordinates if necessary
+                if hasattr(self, "M_inv") and self.M_inv is not None:
+                    pts = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
+                    pts = cv2.perspectiveTransform(pts[None, :, :], self.M_inv)[0]
+                    x1, y1 = int(pts[0][0]), int(pts[0][1])
+                    x2, y2 = int(pts[1][0]), int(pts[1][1])
+
+                # Draw the unwarped line
+                cv2.line(filtered_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+            cv2.imshow(window_name, filtered_image)
+            cv2.waitKey(1)
+
+        return filtered_fits
+
+    def _line_classifier(self, image, lines):
+        """
+        Processes detected lines to average and classify them into left and right lane lines.
+
+        Args:
+            image (np.ndarray): Input image where lines were detected.
+            lines (list): List of detected lines, each represented by their endpoints (x1, y1, x2, y2).
+
+        Returns:
+            tuple:
+                - np.ndarray: Array containing the new left and right lane lines.
+                - list: Raw (non-averaged) left lines.
+                - list: Raw (non-averaged) right lines.
+                - list: Mid lines potentially indicating crosswalks or other features.
+        """
+        # Lists for storing slopes and intercepts for left and right lines
         left_fit = []
         right_fit = []
+
+        # Variables to store the final averaged lines
+        new_left_line = np.array([None], dtype=object)
+        new_right_line = np.array([None], dtype=object)
+
+        # Lists for storing raw line segments before averaging
         non_avg_left_lines = []
         non_avg_right_lines = []
+        mid_lines = []
+        horizontal_lines = []
+        # Constants for filtering lines
+        MIN_SLOPE_THRESHOLD = (
+            0.2  # Minimum slope magnitude to filter out nearly horizontal lines
+        )
+        INFINITY_SLOPE = float("inf")  # Placeholder for vertical lines (infinite slope)
 
-        # Constants
-        MIN_SLOPE_THRESHOLD = 0.2  # Minimum absolute slope to consider a line (to discard horizontal lines)
-        INFINITY_SLOPE = float("inf")  # Placeholder for vertical lines
+        # Constants for detecting crosswalk lines
+        CROSSWALK_X1_MIN = 150  # Minimum x1 coordinate for a crosswalk
+        CROSSWALK_X1_MAX = 450  # Maximum x1 coordinate for a crosswalk
+        CROSSWALK_LENGTH_MAX = 100  # Maximum length (x1 - x2) for a crosswalk line
 
-        # Calculate the center of the image
-        image_center_x = image.shape[1] // 2
-
-        # Process each detected line
+        # Check if any lines are provided
         if lines is not None:
             for line in lines:
-                # Extract line endpoints
+                # Extract line coordinates
                 x1, y1, x2, y2 = line.reshape(4)
 
-                # Handle vertical lines (to avoid division by zero)
+                # Handle vertical lines (avoid division by zero)
                 if x2 - x1 == 0:
                     slope = INFINITY_SLOPE
                     intercept = x1
                 else:
-                    # Calculate slope and y-intercept using linear regression
+                    # Calculate slope and intercept of the line using linear regression
                     parameters = np.polyfit((x1, x2), (y1, y2), 1)
                     slope, intercept = parameters
 
                 # Discard nearly horizontal lines based on the slope threshold
                 if abs(slope) < MIN_SLOPE_THRESHOLD:
+                    horizontal_lines.append((x1, y1, x2, y2))
                     continue
 
-                # Determine the position of the line relative to the image center
-                mid_x = (x1 + x2) // 2
-                if mid_x < image_center_x:  # Line is on the left side
+                # Detect potential crosswalks based on line position and length
+                if (
+                    CROSSWALK_X1_MIN < x1 < CROSSWALK_X1_MAX
+                    and abs(x1 - x2) < CROSSWALK_LENGTH_MAX
+                ):
+                    mid_lines.append((x1, y1, x2, y2))
+                    continue
+
+                # Classify the line as left or right based on its slope
+                if slope < 0:  # Negative slope indicates a left line
                     non_avg_left_lines.append((x1, y1, x2, y2))
                     left_fit.append((slope, intercept))
-                elif mid_x >= image_center_x:  # Line is on the right side
+                else:  # Positive slope indicates a right line
                     non_avg_right_lines.append((x1, y1, x2, y2))
                     right_fit.append((slope, intercept))
-                # Segun pendiente, se complica en curvas 
-                # if slope < 0:
-                #     non_avg_left_lines.append((x1, y1, x2, y2))
 
-                #     left_fit.append((slope, intercept))
-                # else:
-                #     non_avg_right_lines.append((x1, y1, x2, y2))
-
-                #     right_fit.append((slope, intercept))
-
-        # Generate or retrieve the left line
-        if left_fit:
-            # Calculate a new average line for the left side
+        # Process left lines to generate the final averaged left lane line
+        if len(left_fit) != 0:
+            left_fit = self._filter_outliers(left_fit, non_avg_left_lines, image)
             new_left_line = self._handle_fit(image, left_fit)
             self.previous_left_line = new_left_line
-        else:
-            # Use the previous line if available, otherwise generate an imaginary line
-            if self.previous_left_line is None:
-                new_left_line = self._generate_imaginary_line(image, side="left")
-            else:
-                new_left_line = self.previous_left_line
 
-        # Generate or retrieve the right line
-        if right_fit:
-            # Calculate a new average line for the right side
+        # Process right lines to generate the final averaged right lane line
+        if len(right_fit) != 0:
+            right_fit = self._filter_outliers(right_fit, non_avg_right_lines, image)
             new_right_line = self._handle_fit(image, right_fit)
             self.previous_right_line = new_right_line
-        else:
-            # Use the previous line if available, otherwise generate an imaginary line
-            if self.previous_right_line is None:
-                new_right_line = self._generate_imaginary_line(image, side="right")
-            else:
-                new_right_line = self.previous_right_line
 
-        # Return the averaged lines and the non-averaged line segments
-        return np.array([new_left_line, new_right_line]), non_avg_left_lines, non_avg_right_lines
+        # Return the final lane lines and raw line classifications
+        return (
+            np.array([new_left_line, new_right_line], dtype=object),
+            non_avg_left_lines,
+            non_avg_right_lines,
+            mid_lines,
+            horizontal_lines,
+        )
 
     def _display_lines(self, image, lines, color):
         """
-        Draws lines on an image. If a perspective transformation exists, 
+        Draws lines on an image. If a perspective transformation exists,
         the lines are transformed back to the original perspective.
 
         Args:
@@ -383,8 +450,10 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         line_image = np.zeros_like(image)
 
         # Draw each line on the blank image
-        if lines is not None:
-            for x1, y1, x2, y2 in lines:
+
+        for line in lines:
+            if len(line) == 4:
+                x1, y1, x2, y2 = line
                 # If a perspective transformation exists, transform the line back
                 if self.M_inv is not None:
                     pts = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
@@ -409,39 +478,13 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         Returns:
             np.ndarray or None: Coordinates for the average fit line, or None if an error occurs.
         """
-        # Declare constants at the beginning
+        # Constants
         avg_fit = None
-        
+
         # Calculate the average of the fit lines
         avg_fit = np.mean(fit_lines, axis=0)
-            
-            # Call a method to generate coordinates
+
         return self._make_coordinates(image, avg_fit)
-
-    def _generate_imaginary_line(self, image, side):
-        """
-        Generates an imaginary line on the image.
-
-        Args:
-            image (np.ndarray): Input image.
-            side (str): Side of the lane ("left" or "right").
-
-        Returns:
-            np.ndarray: Coordinates of the imaginary line.
-        """
-        # Default imaginary line parameters
-        LEFT_LINE_SLOPE = -0.65
-        RIGHT_LINE_SLOPE = 0.65
-        DEFAULT_INTERCEPT_ADJUST = 100  # Default intercept adjustment for imaginary lines
-
-        if side == "left":
-    
-            intercept = image.shape[0] - LEFT_LINE_SLOPE * DEFAULT_INTERCEPT_ADJUST
-        else:
-            slope = RIGHT_LINE_SLOPE
-            intercept = image.shape[0] - RIGHT_LINE_SLOPE * DEFAULT_INTERCEPT_ADJUST
-
-        return self._make_coordinates(image, (slope, intercept))
 
     def _make_coordinates(self, image, line_parameters):
         """
@@ -454,6 +497,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         Returns:
             np.ndarray: Array containing the coordinates [x1, y1, x2, y2].
         """
+
         # Constants
         slope, intercept = line_parameters
         Y2_SCALE = 2 / 5  # Scale for the height of lines in the region of interest
@@ -471,7 +515,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
         return np.array([x1, y1, x2, y2])
 
-    def _check_line_angle(self, lines, target_angle, tolerance=10, debug_image=None, print_angle=False):
+    def _check_line_angle(self, lines, target_angle, tolerance):
         """
         Checks if the average line angle is close to the target angle.
 
@@ -479,159 +523,214 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             lines (list): Detected lines from Hough Transform.
             target_angle (float): Target angle in degrees to check against.
             tolerance (float, optional): Allowable deviation from the target angle. Default is 10 degrees.
-            debug_image (np.ndarray, optional): Image for debugging visualization. Default is None.
-            print_angle (bool, optional): If True, prints the calculated average angle. Default is False.
 
         Returns:
             bool: True if the average line angle is within tolerance, otherwise False.
         """
-        # Declare constants at the beginning
-        DEFAULT_VERTICAL_ANGLE = 90
-        DEBUG_LINE_COLOR = (0, 0, 255)  # Red for debug visualization
-        TARGET_LINE_COLOR = (0, 255, 0)  # Green for target matching lines
-        AVG_LINE_COLOR = (255, 100, 100)  # Blue for average line
-        AVG_LINE_LENGTH = 200  # Length of the average line for visualization
+        # Constants
+        DEFAULT_VERTICAL_ANGLE = 90  # Angle for vertical lines
+        TOLERANCE_THRESHOLD = tolerance  # Maximum allowable deviation from target angle
 
+        # Return False if no lines are provided
         if lines is None or len(lines) == 0:
             return False
 
-        angles = []  # List to store angles of detected lines
+        # List to store the angles of detected lines
+        angles = []
 
         # Iterate over all detected lines
         for line in lines:
             for x1, y1, x2, y2 in line:
-                # Calculate the angle in degrees
+                # Calculate the differences in x and y coordinates
                 delta_y = y2 - y1
                 delta_x = x2 - x1
-                if delta_x == 0:  # Handle vertical lines
+
+                # Handle vertical lines (to avoid division by zero)
+                if delta_x == 0:
                     angle = DEFAULT_VERTICAL_ANGLE
                 else:
+                    # Calculate the angle in degrees using arctangent
                     angle = math.degrees(math.atan2(delta_y, delta_x))
-
-                # Draw the line in red for debugging if a debug image is provided
-                if debug_image is not None:
-                    cv2.line(debug_image, (x1, y1), (x2, y2), DEBUG_LINE_COLOR, 2)
-
-                # If the line angle is within tolerance, add it to the list and draw in green
-                if abs(angle - target_angle) <= tolerance:
+                # Check if the line angle is within the specified tolerance
+                if abs(angle - target_angle) <= TOLERANCE_THRESHOLD:
                     angles.append(angle)
-                    if debug_image is not None:
-                        cv2.line(debug_image, (x1, y1), (x2, y2), TARGET_LINE_COLOR, 2)
 
+        # Return False if no angles fall within the tolerance
         if not angles:
             return False
 
-        # Calculate the average angle
+        # Calculate the average angle of the filtered lines
         avg_angle = np.mean(angles)
-        if print_angle:
-            print(f"Average Angle: {avg_angle}")
 
-        # Draw the average line for visualization if debug image is provided
-        if debug_image is not None:
-            h, w = debug_image.shape[:2]
-            x_center = w // 2
-            y_center = h // 2
-            avg_radians = math.radians(avg_angle)
+        # Return True if the average angle is within tolerance, otherwise False
+        return abs(avg_angle - target_angle) <= TOLERANCE_THRESHOLD
 
-            # Calculate the endpoints of the average line
-            x1_avg = int(x_center - AVG_LINE_LENGTH * math.cos(avg_radians))
-            y1_avg = int(y_center - AVG_LINE_LENGTH * math.sin(avg_radians))
-            x2_avg = int(x_center + AVG_LINE_LENGTH * math.cos(avg_radians))
-            y2_avg = int(y_center + AVG_LINE_LENGTH * math.sin(avg_radians))
-
-            cv2.line(debug_image, (x1_avg, y1_avg), (x2_avg, y2_avg), AVG_LINE_COLOR, 4)
-
-        # Check if the average angle is within tolerance
-        return abs(avg_angle - target_angle) <= tolerance
-
-    def _check_intersection(self, image):
+    def _check_curve(self, left_line, right_line):
         """
-        Detects intersections in the image by analyzing the angles of lines in specific regions.
+        Determines if the path is a left curve, right curve, or straight,
+        based on the angles of the left and right lane lines.
 
         Args:
-            image (np.ndarray): Input image for intersection detection.
+            left_line (list): Detected left line from Hough Transform.
+            right_line (list): Detected right line from Hough Transform.
 
         Returns:
             None
         """
-        # Declare constants for left and right regions
-        LEFT_HOUGH_RHO_RESOLUTION = 2  # Rho resolution for the Hough transform (left region)
-        LEFT_HOUGH_THETA_RESOLUTION = np.pi / 180  # Theta resolution for the Hough transform (left region)
-        LEFT_HOUGH_THRESHOLD = 50  # Threshold for Hough transform (left region)
-        LEFT_HOUGH_MIN_LINE_LENGTH = 50  # Minimum line length for the Hough transform (left region)
-        LEFT_HOUGH_MAX_LINE_GAP = 30  # Maximum gap allowed between lines (left region)
-
-        RIGHT_HOUGH_RHO_RESOLUTION = 2  # Rho resolution for the Hough transform (right region)
-        RIGHT_HOUGH_THETA_RESOLUTION = np.pi / 180  # Theta resolution for the Hough transform (right region)
-        RIGHT_HOUGH_THRESHOLD = 150  # Threshold for Hough transform (right region)
-        RIGHT_HOUGH_MIN_LINE_LENGTH = 150  # Minimum line length for the Hough transform (right region)
-        RIGHT_HOUGH_MAX_LINE_GAP = 50  # Maximum gap allowed between lines (right region)
-
-        # Declare constants for intersection angle checks
-        LEFT_ANGLE_RESET = -60  # Target angle for resetting intersection on the left
-        RIGHT_ANGLE_RESET = 60  # Target angle for resetting intersection on the right
-        LEFT_ANGLE_VALID = 50   # Target angle for detecting an intersection on the left
-        RIGHT_ANGLE_VALID = 0   # Target angle for detecting an intersection on the right
-        LEFT_TOLERANCE = 10     # Angle tolerance for left lines
-        RIGHT_TOLERANCE = 10    # Angle tolerance for right lines
-        INTERSECTION_TEXT = "Intersection: YES"
-        NO_INTERSECTION_TEXT = "Intersection: NO"
-
-        # Extract regions of interest for left and right sections
-        left, right = self._get_ROI_intersection(image)
-
-        # Detect lines using Hough Transform for left and right regions
-        left_lines = cv2.HoughLinesP(
-            left,
-            LEFT_HOUGH_RHO_RESOLUTION,
-            LEFT_HOUGH_THETA_RESOLUTION,
-            LEFT_HOUGH_THRESHOLD,
-            minLineLength=LEFT_HOUGH_MIN_LINE_LENGTH,
-            maxLineGap=LEFT_HOUGH_MAX_LINE_GAP,
+        # Constants for curve detection
+        LEFT_CURVE_TARGET_ANGLE = -50  # Expected angle for left line in a right curve
+        RIGHT_CURVE_TARGET_ANGLE = -135  # Expected angle for right line in a left curve
+        LEFT_CURVE_TOLERANCE = (
+            10  # Allowed deviation from the target angle for left line
         )
-        right_lines = cv2.HoughLinesP(
-            right,
-            RIGHT_HOUGH_RHO_RESOLUTION,
-            RIGHT_HOUGH_THETA_RESOLUTION,
-            RIGHT_HOUGH_THRESHOLD,
-            minLineLength=RIGHT_HOUGH_MIN_LINE_LENGTH,
-            maxLineGap=RIGHT_HOUGH_MAX_LINE_GAP,
+        RIGHT_CURVE_TOLERANCE = (
+            10  # Allowed deviation from the target angle for right line
         )
 
-        # Check intersection state based on line angles
-        if self.in_intersection:
-            left_angle_reset = self._check_line_angle(left_lines, LEFT_ANGLE_RESET, tolerance=LEFT_TOLERANCE)
-            right_angle_reset = self._check_line_angle(right_lines, RIGHT_ANGLE_RESET, tolerance=RIGHT_TOLERANCE)
-            if left_angle_reset and right_angle_reset:
-                self.in_intersection = False  # Reset intersection state
+        # Constants for text annotation
+        TEXT_POSITION = (0, 15)  # Position where the text will be drawn on the image
+        FONT_TYPE = cv2.FONT_HERSHEY_SIMPLEX  # Font type for the text
+        FONT_SCALE = 0.6  # Font scale for the text
+        FONT_THICKNESS = 1  # Thickness of the text
+        TEXT_COLOR = (0, 255, 0)  # Green color for the text (BGR format)
+
+        # Variables to determine the curve type
+        is_left_curve = False
+        is_right_curve = False
+
+        # Check if the left and right lines are present
+        left_line_present = len(left_line) == 4
+        right_line_present = len(right_line) == 4
+
+        # Evaluate the left line for a right curve
+        if left_line_present:
+            # Format left line as expected by _check_line_angle method
+            left_line = [[[left_line[0], left_line[1], left_line[2], left_line[3]]]]
+            is_right_curve = self._check_line_angle(
+                left_line, LEFT_CURVE_TARGET_ANGLE, LEFT_CURVE_TOLERANCE
+            )
+
+        # Evaluate the right line for a left curve
+        if right_line_present:
+            # Format right line as expected by _check_line_angle method
+            right_line = [
+                [[right_line[0], right_line[1], right_line[2], right_line[3]]]
+            ]
+            is_left_curve = self._check_line_angle(
+                right_line, RIGHT_CURVE_TARGET_ANGLE, RIGHT_CURVE_TOLERANCE
+            )
+
+        # Determine the type of path based on the curve detections
+        if is_left_curve:
+            path_text = "Left curve"
+        elif is_right_curve:
+            path_text = "Right curve"
         else:
-            left_angle_valid = self._check_line_angle(left_lines, LEFT_ANGLE_VALID, tolerance=40)
-            right_angle_valid = self._check_line_angle(right_lines, RIGHT_ANGLE_VALID, tolerance=RIGHT_TOLERANCE)
-            self.in_intersection = left_angle_valid and right_angle_valid  # Update intersection state
+            path_text = "Straight"
 
-        # Display intersection status on the output image
-        status_text = INTERSECTION_TEXT if self.in_intersection else NO_INTERSECTION_TEXT
-        FONT_SCALE = 0.6  # Font scale for displaying text
-        FONT_THICKNESS = 1  # Thickness of the font for text
-        DIRECTION_COLOR = (0, 255, 0)  # Color for direction text (green)
-        INITIAL_X = 10  # Starting X coordinate for the text
-        INITIAL_Y = 30  # Starting Y coordinate for the text
+        # Annotate the path type on the output image
         cv2.putText(
             self.output_image,
-            status_text,
-            (INITIAL_X, INITIAL_Y),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            FONT_SCALE,
-            DIRECTION_COLOR,
-            FONT_THICKNESS,
-            cv2.LINE_AA,
+            path_text,
+            TEXT_POSITION,  # Position for text
+            FONT_TYPE,  # Font type
+            FONT_SCALE,  # Font scale
+            TEXT_COLOR,  # Text color
+            FONT_THICKNESS,  # Text thickness
+            cv2.LINE_AA,  # Line type for better rendering
         )
 
+    def _check_intersection(self, lines):
+        """
+        Checks if an intersection is detected based on the number of horizontal lines and crosswalk status.
+
+        Args:
+            lines (list): List of horizontal lines to check for intersection.
+
+        Returns:
+            None
+        """
+        # Constants for text annotation
+        TEXT_POSITION = (0, 40)  # Position where the text will be drawn on the image
+        FONT_TYPE = cv2.FONT_HERSHEY_SIMPLEX  # Font type for the text
+        FONT_SCALE = 0.6  # Font scale for the text
+        FONT_THICKNESS = 1  # Thickness of the text
+        TEXT_COLOR = (0, 255, 0)  # Green color for the text (BGR format)
+
+        # Constants for intersection detection
+        MIN_LINES_FOR_INTERSECTION = (
+            2  # Minimum number of lines to detect an intersection
+        )
+        MAX_LINES_FOR_INTERSECTION = (
+            5  # Maximum number of lines to detect an intersection
+        )
+
+        # Initial text indicating whether a crosswalk is detected
+        text = "Intersection: "
+        # Determine if an intersection is detected
+        if (
+            MIN_LINES_FOR_INTERSECTION <= len(lines) <= MAX_LINES_FOR_INTERSECTION
+            and self.in_cross_walk is False
+        ):
+            text += "yes"  # Intersection detected
+        else:
+            text += "no"  # No intersection detected
+
+        # Annotate the intersection detection result on the output image
+        cv2.putText(
+            self.output_image,
+            text,
+            TEXT_POSITION,  # Position for text
+            FONT_TYPE,  # Font type
+            FONT_SCALE,  # Font scale
+            TEXT_COLOR,  # Text color
+            FONT_THICKNESS,  # Text thickness
+            cv2.LINE_AA,  # Line type for better rendering
+        )
+
+    def _check_cross_walk(self, lines):
+        """
+        Determines if a crosswalk is detected based on the number of mid-lines.
+
+        Args:
+            lines (list): List of mid-lines potentially indicating a crosswalk.
+
+        Returns:
+            None
+        """
+        # Constants for text annotation
+        MIN_LINES_FOR_CROSSWALK = 3  # Minimum number of lines to detect a crosswalk
+        TEXT_POSITION = (0, 65)  # Position for the text annotation on the image
+        FONT_TYPE = cv2.FONT_HERSHEY_SIMPLEX  # Font type for the annotation
+        FONT_SCALE = 0.6  # Scale of the font
+        FONT_THICKNESS = 1  # Thickness of the font
+        TEXT_COLOR = (0, 255, 0)  # Color of the text (green in BGR format)
+
+        # Initial text indicating whether a crosswalk is detected
+        text = "Crosswalk: "
+        if len(lines) < MIN_LINES_FOR_CROSSWALK:
+            self.in_cross_walk = False
+            text += "no"
+        else:
+            self.in_cross_walk = True
+            text += "yes"
+
+        # Annotate the crosswalk detection result on the output image
+        cv2.putText(
+            self.output_image,
+            text,
+            TEXT_POSITION,  # Position for the text
+            FONT_TYPE,  # Font type
+            FONT_SCALE,  # Font scale
+            TEXT_COLOR,  # Text color
+            FONT_THICKNESS,  # Text thickness
+            cv2.LINE_AA,  # Line type for better rendering
+        )
 
     def process_image(self, cv_image):
         """
         Processes the input image to detect and draw lane lines using the Hough transform.
-        Also checks for intersections.
+        Also checks for intersections, curves, and crosswalks.
 
         Args:
             cv_image (np.ndarray): Input image.
@@ -639,31 +738,38 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         Returns:
             np.ndarray: Processed output image with lane lines and intersection status.
         """
-        # Hough Transform constants
-        HOUGH_RHO_RESOLUTION = 2  # Distance resolution of the Hough transform
-        HOUGH_THETA_RESOLUTION = np.pi / 180  # Angular resolution of the Hough transform
-        HOUGH_THRESHOLD = 150  # Threshold for detecting lines in the Hough transform
-        HOUGH_MIN_LINE_LENGTH = 50  # Minimum line length for Hough line detection
-        HOUGH_MAX_LINE_GAP = 150  # Maximum gap between line segments to be connected
+        # Constants for Hough Transform parameters
+        HOUGH_RHO_RESOLUTION = (
+            2  # Distance resolution of the Hough transform (in pixels)
+        )
+        HOUGH_THETA_RESOLUTION = (
+            np.pi / 180
+        )  # Angular resolution of the Hough transform (in radians)
+        HOUGH_THRESHOLD = (
+            150  # Minimum number of intersections in Hough space to consider a line
+        )
+        HOUGH_MIN_LINE_LENGTH = 50  # Minimum length of a line segment to be considered
+        HOUGH_MAX_LINE_GAP = 150  # Maximum gap between line segments to connect them
 
-        # Line colors
-        AVG_LINE_COLOR = (0, 255, 0)  # Color for average lane lines
-        NON_AVG_LEFT_COLOR = (0, 0, 255)  # Color for non-average left lane lines
-        NON_AVG_RIGHT_COLOR = (255, 0, 0)  # Color for non-average right lane lines
+        # Line colors for visualization
+        AVG_LINE_COLOR = (0, 255, 0)  # Green for averaged lane lines
+        NON_AVG_LEFT_COLOR = (0, 0, 255)  # Red for non-averaged left lane lines
+        NON_AVG_RIGHT_COLOR = (255, 0, 0)  # Blue for non-averaged right lane lines
 
-        # Make a copy of the original image
+        # Preprocess the input image
         lane_image = cv_image.copy()
+        border_image = self._preprocessing(
+            lane_image
+        )  # Apply preprocessing (e.g., edge detection)
 
-        # Preprocess the image (e.g., thresholding, edge detection)
-        border_image = self._preprocessing(lane_image)
-
-        # Get the region of interest (ROI) for the road
+        # Extract the region of interest (ROI) for the road
         cropped_image = self._get_ROI_road(border_image)
 
-        # Apply perspective warp to get a top-down view
+        # Apply perspective warp to get a bird's-eye view
         warped_image = self._warp_image(cropped_image)
+        # cv2.imshow("Warped Image", warped_image)  # Debug visualization
 
-        # Detect lines using the Hough transform
+        # Detect lines using the Hough Transform
         lines = cv2.HoughLinesP(
             warped_image,
             HOUGH_RHO_RESOLUTION,
@@ -673,25 +779,53 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             maxLineGap=HOUGH_MAX_LINE_GAP,
         )
 
-        # Calculate average and non-average (left and right) lane lines
-        avg_lines, non_avg_left_lines, non_avg_right_lines = self._avg_slope_intercept(lane_image, lines)
+        # Initialize line variables
+        (
+            avg_lines,
+            non_avg_left_lines,
+            non_avg_right_lines,
+            mid_lines,
+            horizontal_lines,
+        ) = (
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
+        new_left_line, new_right_line = None, None
 
-        # If average lane lines were detected, draw them
+        if lines is not None:
+            # Classify lines into average and non-average left/right lanes
+            (
+                avg_lines,
+                non_avg_left_lines,
+                non_avg_right_lines,
+                mid_lines,
+                horizontal_lines,
+            ) = self._line_classifier(lane_image, lines)
+
+            if avg_lines[0] is not None:
+                new_left_line = avg_lines[0]
+            if avg_lines[1] is not None:
+                new_right_line = avg_lines[1]
+
+        # If lines are detected, process and draw them
         if avg_lines is not None:
-            # Draw average lane lines
+            # Draw averaged lane lines
             avg_line_image = self._display_lines(lane_image, avg_lines, AVG_LINE_COLOR)
 
-            # Draw non-average left lane lines
+            # Draw non-averaged left lane lines
             non_avg_left_line_image = self._display_lines(
                 lane_image, non_avg_left_lines, NON_AVG_LEFT_COLOR
             )
 
-            # Draw non-average right lane lines
+            # Draw non-averaged right lane lines
             non_avg_right_line_image = self._display_lines(
                 avg_line_image, non_avg_right_lines, NON_AVG_RIGHT_COLOR
             )
 
-            # Combine all line images
+            # Combine all drawn lines into one image
             combined_line_image_a = cv2.addWeighted(
                 avg_line_image, 1, non_avg_left_line_image, 1, 0
             )
@@ -700,15 +834,16 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             )
 
             # Merge the combined line image with the original image
-            self.output_image = cv2.addWeighted(lane_image, 0.8, combined_line_image_b, 1, 0)
+            self.output_image = cv2.addWeighted(
+                lane_image, 0.8, combined_line_image_b, 1, 0
+            )
+
+            # Check for curves and crosswalks
+            self._check_curve(new_left_line, new_right_line)
+            # self._check_cross_walk(mid_lines)
+            # self._check_intersection(horizontal_lines)
         else:
-            # If no lines were detected, return the original image
+            # If no lines are detected, retain the original image
             self.output_image = cv_image
 
-        # Check for intersections using the warped image
-        self._check_intersection(warped_image)
-
         return self.output_image
-
-
-
