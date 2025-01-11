@@ -51,7 +51,7 @@ export class WebSocketService {
     'response',
     'BatteryLvl',
     'ResourceMonitor',
-    'serialCamera',
+    'CVCamera',
     'Recording',
     'CurrentSpeed',
     'CurrentSteer',
@@ -117,7 +117,7 @@ export class WebSocketService {
 
   // Method to receive image updates
   receiveCamera(): Observable<any> {
-    return this.webSocket.fromEvent('serialCamera');
+    return this.webSocket.fromEvent('CVCamera');
   }
 
   // Method to receive location updates
