@@ -1,5 +1,6 @@
+from src.decision.distance.distanceModule import DistanceModule
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CurrentSpeed, SpeedMotor, Ultra, mainCamera)
+from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 class threadDecisionMaker(ThreadWithStop):
@@ -15,18 +16,30 @@ class threadDecisionMaker(ThreadWithStop):
         self.logging = logging
         self.debugging = debugging
         self.currentSpeed = "0"
+        self.currentSteer = "0"
         self.subscribers = {}
-        self.speedSender = messageHandlerSender(self.queuesList, SpeedMotor)
+        self.distanceModule = DistanceModule()
+        self.speedSender = messageHandlerSender(self.queuesList, SetSpeed)
+        self.steerSender = messageHandlerSender(self.queuesList, SetSteer)
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
 
     def run(self):
         while self._running:
+            ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
             self.currentSpeed  = self.subscribers["CurrentSpeed"].receive() or self.currentSpeed 
-            if ultraVals is not None:
-                if ultraVals["top"] < 30 and int(self.currentSpeed) > 0:
-                    self.speedSender.send("0") #stop the vehicle if front distance is less than 30 cm 
+            self.currentSteer  = self.subscribers["CurrentSteer"].receive() or self.currentSteer
+            targetSpeed =  self.subscribers["SpeedMotor"].receive() or self.currentSpeed 
+            targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
+            # Decides speed based on distance safe check
+            decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
+            # If there's change in steer or speed, sends the message to the nucleo board
+            if self.currentSpeed != decidedSpeed:
+                self.speedSender.send(decidedSpeed)
+            if self.currentSteer != targetSteer:
+                self.steerSender.send(decidedSteer)
+
             
 
     def subscribe(self):
@@ -35,3 +48,10 @@ class threadDecisionMaker(ThreadWithStop):
         self.subscribers["Ultra"] = subscriber
         subscriber = messageHandlerSubscriber(self.queuesList, CurrentSpeed, "lastOnly", True)
         self.subscribers["CurrentSpeed"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, CurrentSteer, "lastOnly", True)
+        self.subscribers["CurrentSteer"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, SpeedMotor, "lastOnly", True)
+        self.subscribers["SpeedMotor"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, SteerMotor, "lastOnly", True)
+        self.subscribers["SteerMotor"] = subscriber
+
