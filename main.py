@@ -60,6 +60,7 @@ from src.data.TrafficCommunication.processTrafficCommunication import processTra
 from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
+from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
 # ======================================== SETTING UP ====================================
 allProcesses = list()
 
@@ -81,6 +82,7 @@ SerialHandler = True
 # ------ New component flags starts here ------#
 DecisionMaker = True
 LaneDetection = False
+ObjectDetection = False
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================
@@ -128,6 +130,10 @@ if DecisionMaker:
 if LaneDetection:
     processLaneDetection = processLaneDetection(queueList, logging, debugging = False)
     allProcesses.append(processLaneDetection)
+
+if ObjectDetection:
+    processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
+    allProcesses.append(processObjectDetection)
 # ------ New component runs ends here ------#
 
 # ===================================== START PROCESSES ==================================

@@ -33,6 +33,7 @@ import picamera2
 import time
 
 from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
+from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 from src.utils.messages.allMessages import (
     CVCamera,
     mainCamera,
@@ -69,7 +70,8 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
-        self.processor = LaneDetectionProcessor(type="simulator")
+        #self.processor = LaneDetectionProcessor(type="simulator")
+        self.processor = ObjectDetectionProcessor()
 
         self.subscribe()
         self._init_camera()
