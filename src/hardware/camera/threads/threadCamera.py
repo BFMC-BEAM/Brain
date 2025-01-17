@@ -42,6 +42,7 @@ from src.utils.messages.allMessages import (
     Record,
     Brightness,
     Contrast,
+    CV_ObjectDetection_Type
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -70,6 +71,7 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
+        self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
         #self.processor = LaneDetectionProcessor(type="simulator")
         self.processor = ObjectDetectionProcessor()
 
@@ -84,6 +86,7 @@ class threadCamera(ThreadWithStop):
         self.recordSubscriber = messageHandlerSubscriber(self.queuesList, Record, "lastOnly", True)
         self.brightnessSubscriber = messageHandlerSubscriber(self.queuesList, Brightness, "lastOnly", True)
         self.contrastSubscriber = messageHandlerSubscriber(self.queuesList, Contrast, "lastOnly", True)
+        
 
     def Queue_Sending(self):
         """Callback function for recording flag."""
@@ -159,7 +162,12 @@ class threadCamera(ThreadWithStop):
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
-                out = self.processor.process_image(serialRequest)
+                out, signal_detected, valid_distance = self.processor.process_image(serialRequest)
+
+                if (signal_detected == "stop_signal" & valid_distance == False):
+                    self.ObjectDetection_Type.send("stop_signal")
+                else:
+                    self.ObjectDetection_Type.send("no_signal")
 
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", out)
