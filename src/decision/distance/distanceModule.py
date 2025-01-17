@@ -14,6 +14,12 @@ class DistanceModule():
                 #pass
         return (currentSpeed,currentSteer)
     
+    def check_stop_signal(self, objectDetection, currentSpeed):
+        if objectDetection == "stop_signal":
+            return("0")
+        return (currentSpeed)
+
+
     def get_multiplier(self, currentSpeed):
         absSpeed= abs(int(currentSpeed))
         mult = 1
