@@ -38,7 +38,7 @@ class threadDecisionMaker(ThreadWithStop):
             targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
-            decidedSpeed = self.handle_stop_signal_logic(objectDetection, decidedSpeed)
+            decidedSpeed = self.distanceModule.handle_stop_signal_logic(objectDetection, decidedSpeed)
             # If there's change in steer or speed, sends the message to the nucleo board
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)

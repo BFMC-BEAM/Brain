@@ -8,8 +8,7 @@ class DistanceModule():
         self.ignore_stop_signal_until = 0
         self.delay_stop_signal = 0
         self.start_stop_signal_logic = False
-        self.start_previous_speed_logic = False
-        self.previous_speed = 0
+        #self.previous_speed = "0"
         
     def check_distance(self, ultraVals, currentSpeed, currentSteer):
         mult_distance = self.min_distance * self.get_multiplier(currentSpeed)
@@ -35,33 +34,21 @@ class DistanceModule():
         
         return mult
     
-    def handle_stop_signal_logic(self, objectDetection, decidedSpeed):
+    def handle_stop_signal_logic(self, objectDetection, actualSpeed):
         current_time = time.time()
+        decidedSpeed = actualSpeed
 
-        if objectDetection == "stop_signal" and current_time > self.ignore_stop_signal_until and not self.start_stop_signal_logic and not self.start_previous_speed_logic:
+        if objectDetection == "stop_signal" and current_time > self.ignore_stop_signal_until and not self.start_stop_signal_logic:
             self.start_stop_signal_logic = True
-            self.previous_speed = decidedSpeed                          # Guardar la velocidad antes de detener el auto
-            self.delay_stop_signal = current_time + 3                   # Tiempo de detención
-            self.ignore_stop_signal_until = self.delay_stop_signal + 10 # Ignorar la señal de stop por 10 segundos
-            print(f"Entered stop signal logic:")
-            print(f"  self.delay_stop_signal: {self.delay_stop_signal}")
-            print(f"  self.ignore_stop_signal_until: {self.ignore_stop_signal_until}")
-            print(f"  self.previous_speed: {self.previous_speed}")
+            #self.previous_speed = decidedSpeed                          # save actualSpeed before stop
+            self.delay_stop_signal = current_time + 3                   # stop for 3 seconds
+            self.ignore_stop_signal_until = self.delay_stop_signal + 10 # ignore stop signal for 10 seconds
 
         if self.start_stop_signal_logic:
             if current_time > self.delay_stop_signal:
                 self.start_stop_signal_logic = False
-                self.start_previous_speed_logic = True
-                print(f"stop signal logic.")
+                #print(f"stop signal logic.")
             else:
                 decidedSpeed = "0"
-
-        if self.start_previous_speed_logic:
-            if current_time > self.ignore_stop_signal_until:
-                self.start_previous_speed_logic = False
-                print(f"stop previous speed logic.")
-            else:
-                decidedSpeed = self.previous_speed
-            
 
         return decidedSpeed
