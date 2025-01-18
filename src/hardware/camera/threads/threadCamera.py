@@ -164,7 +164,7 @@ class threadCamera(ThreadWithStop):
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 out, signal_detected, valid_distance = self.processor.process_image(serialRequest)
 
-                if (signal_detected == "stop_signal" & valid_distance == False):
+                if signal_detected and signal_detected == "stop_signal" and not valid_distance:
                     self.ObjectDetection_Type.send("stop_signal")
                 else:
                     self.ObjectDetection_Type.send("no_signal")

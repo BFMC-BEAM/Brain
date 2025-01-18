@@ -41,7 +41,7 @@ class ObjectDetectionProcessor:
         
         # Convertir predicciones a un DataFrame y filtrar por confianza
         df = pred.pandas().xyxy[0]
-        signal_detected = df["name"]
+        signal_detected = df["name"].iloc[0] if not df.empty else None
         df = df[(df["confidence"] > 0.5) & (signal_detected == "stop sign")]
 
         valid_distance = True
