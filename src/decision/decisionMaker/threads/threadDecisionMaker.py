@@ -3,6 +3,8 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera, CV_ObjectDetection_Type)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
+import time
+
 class threadDecisionMaker(ThreadWithStop):
     """This thread handles decisionMaker.
     Args:
@@ -23,7 +25,22 @@ class threadDecisionMaker(ThreadWithStop):
         self.steerSender = messageHandlerSender(self.queuesList, SetSteer)
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
+        self.ignore_stop_signal_until = 0
+        self.previous_speed = 0
 
+    def handle_stop_signal_logic(self, objectDetection, decidedSpeed):
+        current_time = time.time()
+
+        if objectDetection == "stop_signal" and current_time > self.ignore_stop_signal_until:
+            self.previous_speed = decidedSpeed  # Guardar la velocidad actual
+            decidedSpeed = 0  # Detener el auto
+            self.speedSender.send(decidedSpeed)
+            time.sleep(3)  # Esperar 3 segundos
+            decidedSpeed = self.previous_speed  # Restaurar la velocidad anterior
+            self.ignore_stop_signal_until = current_time + 10  # Ignorar la señal de stop por 10 segundos
+
+        return decidedSpeed
+    
     def run(self):
         while self._running:
             ## Recieves the sub values
@@ -35,7 +52,8 @@ class threadDecisionMaker(ThreadWithStop):
             targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
-            decidedSpeed = self.distanceModule.check_stop_signal(objectDetection, targetSpeed)
+            decidedSpeed = self.handle_stop_signal_logic(objectDetection, decidedSpeed)
+            #decidedSpeed = self.distanceModule.check_stop_signal(objectDetection, targetSpeed)
             # If there's change in steer or speed, sends the message to the nucleo board
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
