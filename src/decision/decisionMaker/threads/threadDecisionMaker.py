@@ -32,11 +32,9 @@ class threadDecisionMaker(ThreadWithStop):
         current_time = time.time()
 
         if objectDetection == "stop_signal" and current_time > self.ignore_stop_signal_until:
-            self.previous_speed = decidedSpeed  # Guardar la velocidad actual
-            decidedSpeed = 0  # Detener el auto
-            self.speedSender.send(decidedSpeed)
+            self.speedSender.send("0")
             time.sleep(3)  # Esperar 3 segundos
-            decidedSpeed = self.previous_speed  # Restaurar la velocidad anterior
+            self.speedSender.send("40")
             self.ignore_stop_signal_until = current_time + 10  # Ignorar la señal de stop por 10 segundos
 
         return decidedSpeed
