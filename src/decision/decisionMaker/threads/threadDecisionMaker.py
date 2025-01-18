@@ -45,9 +45,12 @@ class threadDecisionMaker(ThreadWithStop):
 
         if self.start_stop_signal_logic:
             if current_time > self.delay_stop_signal:
-                decidedSpeed = "40"
+                decidedSpeed = "200"
                 self.start_stop_signal_logic = False
-                print(f"Set decidedSpeed to 40 after stop signal logic.")
+                print(f"Set decidedSpeed to 20 after stop signal logic.")
+                time.sleep(3)
+                decidedSpeed = "300"
+                print(f"Set decidedSpeed to 30 after stop signal logic.")
             else:
                 decidedSpeed = "0"
 
