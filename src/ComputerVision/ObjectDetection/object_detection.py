@@ -44,6 +44,8 @@ class ObjectDetectionProcessor:
         signal_detected = df["name"]
         df = df[(df["confidence"] > 0.5) & (signal_detected == "stop sign")]
 
+        valid_distance = True
+
         # Dibujar las cajas de detección en el frame
         for i in range(df.shape[0]):
             bbox = df.iloc[i][["xmin", "ymin", "xmax", "ymax"]].values.astype(int)
@@ -54,7 +56,6 @@ class ObjectDetectionProcessor:
                 valid_distance = False
             else:
                 bbox_color = (0, 0, 255)  # Rojo
-                valid_distance = True
 
             cv2.rectangle(cv_image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), bbox_color, 2)
             cv2.putText(cv_image,
