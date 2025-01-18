@@ -33,23 +33,26 @@ class threadDecisionMaker(ThreadWithStop):
     def handle_stop_signal_logic(self, objectDetection, decidedSpeed):
         current_time = time.time()
 
-        # Detectar la señal de stop
         if objectDetection == "stop_signal" and current_time > self.ignore_stop_signal_until and not self.start_stop_signal_logic:
             self.start_stop_signal_logic = True
-            self.previous_speed = decidedSpeed  # Guardar la velocidad antes de detener el auto
-            self.delay_stop_signal = current_time + 3  # Tiempo de detención
-            self.ignore_stop_signal_until = self.delay_stop_signal + 10  # Ignorar la señal de stop por 10 segundos
+            self.previous_speed = decidedSpeed                          # Guardar la velocidad antes de detener el auto
+            self.delay_stop_signal = current_time + 3                   # Tiempo de detención
+            self.ignore_stop_signal_until = self.delay_stop_signal + 10 # Ignorar la señal de stop por 10 segundos
+            print(f"Entered stop signal logic:")
+            print(f"  self.delay_stop_signal: {self.delay_stop_signal}")
+            print(f"  self.ignore_stop_signal_until: {self.ignore_stop_signal_until}")
+            print(f"  self.previous_speed: {self.previous_speed}")
 
-        # Si está en el estado de espera por la señal de stop
         if self.start_stop_signal_logic:
-            decidedSpeed = "0"  # Detener el auto
-
-            # Después de 3 segundos, cambiar la velocidad a "50"
             if current_time > self.delay_stop_signal:
                 decidedSpeed = "40"
-                self.start_stop_signal_logic = False  # Termina la lógica de la señal de stop
+                self.start_stop_signal_logic = False
+                print(f"Set decidedSpeed to 40 after stop signal logic.")
+            else:
+                decidedSpeed = "0"
 
         return decidedSpeed
+
 
     
     def run(self):
