@@ -5,7 +5,7 @@ class ObjectDetectionProcessor:
 
     def __init__(self):
         # Cargar el modelo YOLOv5 nano
-        self.model = torch.hub.load("ultralytics/yolov5", "yolov5n", pretrained=True)
+        self.model = torch.hub.load("ultralytics/yolov5", "yolov5s", pretrained=True)
         # Dimensiones reales promedio de una señal de stop (en metros)
         self.real_width = 0.06  # señal de stop: 6 cm de ancho real
         self.focal_length = 309  # Focal length pixel raspberry camera v3
@@ -51,7 +51,7 @@ class ObjectDetectionProcessor:
             bbox = df.iloc[i][["xmin", "ymin", "xmax", "ymax"]].values.astype(int)
             bbox_width = bbox[2] - bbox[0]
             distance_cm = self.calculate_distance(bbox_width)
-            if distance_cm < 10:
+            if distance_cm < 30:
                 bbox_color = (255, 0, 0)  # Azul
                 valid_distance = False
             else:
@@ -66,4 +66,4 @@ class ObjectDetectionProcessor:
                         (255, 255, 255),
                         2)
 
-        return (cv_image, signal_detected, valid_distance)
+        return (cv_image, valid_distance)
