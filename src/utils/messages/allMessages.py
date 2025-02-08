@@ -255,7 +255,26 @@ class CVCamera(Enum):
     Owner = "ComputerVision"
     msgID = 1
     msgType = "str"
+
+class Deviation(Enum):
+    Queue = "General"
+    Owner = "ComputerVision"
+    msgID = 2
+    msgType = "float"
+
+class Direction(Enum):
+    Queue = "General"
+    Owner = "ComputerVision"
+    msgID = 3
+    msgType = "str"
+
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
+
+class CV_ObjectDetection_Type(Enum):
+    Queue = "General"
+    Owner = "CV_ObjectDetection_Type"
+    msgID = 1
+    msgType = "str"
 
 ######################    From DecisionMaker  ###########################
 class SetSpeed(Enum):

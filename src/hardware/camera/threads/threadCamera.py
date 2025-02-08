@@ -41,6 +41,8 @@ from src.utils.messages.allMessages import (
     Record,
     Brightness,
     Contrast,
+    Deviation,
+    Direction
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -69,6 +71,8 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
+        self.deviation = messageHandlerSender(self.queuesList, Deviation)
+        self.direction = messageHandlerSender(self.queuesList, Direction)
         self.processor = LaneDetectionProcessor(type="simulator")
 
         self.subscribe()
@@ -159,6 +163,8 @@ class threadCamera(ThreadWithStop):
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 out = self.processor.process_image(serialRequest)
 
+                deviation, direction = self.processor.get_parameters()
+
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", out)
  
@@ -167,6 +173,8 @@ class threadCamera(ThreadWithStop):
 
                 self.mainCameraSender.send(mainEncodedImageData)
                 self.serialCameraSender.send(serialEncodedImageData)
+                self.direction.send(direction)  # Enviar dirección
+                self.deviation.send(deviation)  # Enviar desviación
 
             send = not send
 

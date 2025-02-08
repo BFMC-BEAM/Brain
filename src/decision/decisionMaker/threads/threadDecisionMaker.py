@@ -1,6 +1,7 @@
 from src.decision.distance.distanceModule import DistanceModule
+from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera)
+from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera, Deviation, Direction, )
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 class threadDecisionMaker(ThreadWithStop):
@@ -28,13 +29,18 @@ class threadDecisionMaker(ThreadWithStop):
         while self._running:
             ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
+            deviation = self.subscribers["Deviation"].receive()
+            direction = self.subscribers["Direction"].receive()
             self.currentSpeed  = self.subscribers["CurrentSpeed"].receive() or self.currentSpeed 
             self.currentSteer  = self.subscribers["CurrentSteer"].receive() or self.currentSteer
             targetSpeed =  self.subscribers["SpeedMotor"].receive() or self.currentSpeed 
             targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
+            decidedSteer = self.purepursuit.ControlSystem(deviation, direction)
+            print(decidedSteer)
             # If there's change in steer or speed, sends the message to the nucleo board
+
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
             if self.currentSteer != targetSteer:
@@ -46,6 +52,11 @@ class threadDecisionMaker(ThreadWithStop):
         """Subscribes to the messages you are interested in"""
         subscriber = messageHandlerSubscriber(self.queuesList, Ultra, "lastOnly", True)
         self.subscribers["Ultra"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, Deviation, "lastOnly", True)
+        self.subscribers["Deviation"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, Direction, "lastOnly", True)
+        self.subscribers["Direction"] = subscriber
+
         subscriber = messageHandlerSubscriber(self.queuesList, CurrentSpeed, "lastOnly", True)
         self.subscribers["CurrentSpeed"] = subscriber
         subscriber = messageHandlerSubscriber(self.queuesList, CurrentSteer, "lastOnly", True)

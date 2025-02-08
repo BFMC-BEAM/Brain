@@ -21,6 +21,8 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         self.in_curve = False
         self.in_cross_walk = False
         self.in_intersection = False
+        self.deviation = 0
+        self.direction = None
 
     def _adjust_parameters(self, gray_image):
         """
@@ -727,6 +729,137 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             cv2.LINE_AA,  # Line type for better rendering
         )
 
+    def _check_deviation(self, left_line, right_line):
+        """
+        Calculates the central point of the lane based on the detected lines and deviation from center.
+        Args:
+            left_line (np.ndarray): Coordinates of the left line [x1, y1, x2, y2] (optional).
+            right_line (np.ndarray): Coordinates of the right line [x1, y1, x2, y2] (optional).
+        Returns:
+            tuple: Coordinates (x, y) of the central point or None if insufficient data.
+        """
+        # Early exit if no lines are detected
+        if len(left_line) == 1 and len(right_line) == 1:
+            return None
+        # print("tengo:",left_line, right_line)
+        # Constants for calculations
+        LANE_WIDTH_METERS = 3.5  # Estimated lane width in meters
+        PIXELS_PER_METER = 200  # Approximation of pixels per meter in the image
+        OFFSET_PIXELS = int(LANE_WIDTH_METERS * PIXELS_PER_METER / 2)  # Half lane width in pixels
+        CIRCLE_RADIUS = 5  # Radius of the circle to mark the center point
+        CIRCLE_COLOR = (255, 0, 255)  # Color of the circle (magenta in BGR format)
+        TEXT_COLOR = (255, 255, 255)  # Color of the text (white in BGR format)
+        TEXT_SCALE = 0.5  # Font scale for text annotation
+        TEXT_THICKNESS = 1  # Font thickness for text annotation
+        LINE_TYPE = cv2.LINE_AA  # Anti-aliased line type for text
+        # Calculate image center in the x-axis
+        image_center_x = self.output_image.shape[1] // 2
+        center_x, center_y = 0, 0
+        # Case 1: Both left and right lines are detected
+        if len(left_line) != 1 and len(right_line) != 1:
+            # Calculate the bottom midpoint of both lines
+            left_bottom_x = (left_line[0] + left_line[2]) // 2
+            left_bottom_y = (left_line[1] + left_line[3]) // 2
+            right_bottom_x = (right_line[0] + right_line[2]) // 2
+            right_bottom_y = (right_line[1] + right_line[3]) // 2
+            # Average the midpoints to find the center
+            center_x = (left_bottom_x + right_bottom_x) // 2
+            center_y = (left_bottom_y + right_bottom_y) // 2
+        # Case 2: Only the left line is detected (right curve scenario)
+        elif len(left_line) != 1 and len(right_line) == 1:
+            x1, y1, x2, y2 = left_line
+            center_x = ((x1 + x2) // 2) + OFFSET_PIXELS
+            center_y = (y1 + y2) // 2
+        # Case 3: Only the right line is detected (left curve scenario)
+        elif len(left_line) == 1 and len(right_line) != 1:
+            x1, y1, x2, y2 = right_line
+            center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
+            center_y = (y1 + y2) // 2
+        # else:
+        # Calculate deviation from the center of the image in meters
+        deviation = (center_x - image_center_x) / PIXELS_PER_METER
+        # Determine the direction of deviation
+        if deviation > 0:
+            direction = "right"
+        elif deviation < 0:
+            direction = "left"
+        else:
+            direction = "straight"
+        # Mark the center point on the image
+        cv2.circle(self.output_image, (center_x, center_y), CIRCLE_RADIUS, CIRCLE_COLOR, -1)
+        # Display deviation and direction information
+        deviation_text = f"Deviation: {abs(deviation):.2f}cm {direction}"
+        cv2.putText(
+            self.output_image,
+            deviation_text,
+            (center_x + 10, center_y - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            TEXT_SCALE,
+            TEXT_COLOR,
+            TEXT_THICKNESS,
+            LINE_TYPE,
+        )
+        return deviation, direction
+    
+    def _check_lane(self, lines, lane_image, display=True):
+        # Line colors for visualization
+        AVG_LINE_COLOR = (0, 255, 0)  # Green for averaged lane lines
+        NON_AVG_LEFT_COLOR = (0, 0, 255)  # Red for non-averaged left lane lines
+        NON_AVG_RIGHT_COLOR = (255, 0, 0)  # Blue for non-averaged right lane lines
+        # Initialize line variables
+        (
+            avg_lines,
+            non_avg_left_lines,
+            non_avg_right_lines,
+            mid_lines,
+            horizontal_lines,
+            new_left_line,
+            new_right_line
+        ) = (
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None
+        )
+        # Classify lines into average and non-average left/right lanes
+        (
+            avg_lines,
+            non_avg_left_lines,
+            non_avg_right_lines,
+            mid_lines,
+            horizontal_lines,
+        ) = self._line_classifier(lane_image, lines)
+        if avg_lines[0] is not None:
+            new_left_line = avg_lines[0]
+        if avg_lines[1] is not None:
+            new_right_line = avg_lines[1]
+        # Draw averaged lane lines
+        avg_line_image = self._display_lines(lane_image, avg_lines, AVG_LINE_COLOR)
+        if display == True:
+            # Draw non-averaged left lane lines
+            non_avg_left_line_image = self._display_lines(
+                lane_image, non_avg_left_lines, NON_AVG_LEFT_COLOR
+            )
+            # Draw non-averaged right lane lines
+            non_avg_right_line_image = self._display_lines(
+                avg_line_image, non_avg_right_lines, NON_AVG_RIGHT_COLOR
+            )
+            # Combine all drawn lines into one image
+            combined_line_image_a = cv2.addWeighted(
+                avg_line_image, 1, non_avg_left_line_image, 1, 0
+            )
+            combined_line_image_b = cv2.addWeighted(
+                combined_line_image_a, 1, non_avg_right_line_image, 1, 0
+            )
+            # Merge the combined line image with the original image
+            self.output_image = cv2.addWeighted(
+                lane_image, 0.8, combined_line_image_b, 1, 0
+            )
+        return new_left_line, new_right_line, mid_lines, horizontal_lines
+    
     def process_image(self, cv_image):
         """
         Processes the input image to detect and draw lane lines using the Hough transform.
@@ -784,66 +917,30 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             non_avg_left_lines,
             non_avg_right_lines,
             mid_lines,
-            horizontal_lines,
+            horizontal_lines
         ) = (
             None,
             None,
             None,
             None,
-            None,
+            None
         )
         new_left_line, new_right_line = None, None
         #print (lines)
         if lines is not None:
-            # Classify lines into average and non-average left/right lanes
-            (
-                avg_lines,
-                non_avg_left_lines,
-                non_avg_right_lines,
-                mid_lines,
-                horizontal_lines,
-            ) = self._line_classifier(lane_image, lines)
-
-            if avg_lines[0] is not None:
-                new_left_line = avg_lines[0]
-            if avg_lines[1] is not None:
-                new_right_line = avg_lines[1]
-
-        # If lines are detected, process and draw them
-        if avg_lines is not None:
-            #print("entro al avg_lines")
-            # Draw averaged lane lines
-            avg_line_image = self._display_lines(lane_image, avg_lines, AVG_LINE_COLOR)
-
-            # Draw non-averaged left lane lines
-            non_avg_left_line_image = self._display_lines(
-                lane_image, non_avg_left_lines, NON_AVG_LEFT_COLOR
-            )
-
-            # Draw non-averaged right lane lines
-            non_avg_right_line_image = self._display_lines(
-                avg_line_image, non_avg_right_lines, NON_AVG_RIGHT_COLOR
-            )
-
-            # Combine all drawn lines into one image
-            combined_line_image_a = cv2.addWeighted(
-                avg_line_image, 1, non_avg_left_line_image, 1, 0
-            )
-            combined_line_image_b = cv2.addWeighted(
-                combined_line_image_a, 1, non_avg_right_line_image, 1, 0
-            )
-
-            # Merge the combined line image with the original image
-            self.output_image = cv2.addWeighted(
-                lane_image, 0.8, combined_line_image_b, 1, 0
-            )
-
-            # Check for curves and crosswalks
+            new_left_line, new_right_line, mid_lines, horizontal_lines = self._check_lane(lines, lane_image, True)
+            ret = self._check_deviation(new_left_line, new_right_line)
+            if ret is not None:
+                self.deviation, self.direction = ret
             self._check_curve(new_left_line, new_right_line)
-            # self._check_cross_walk(mid_lines)
-            # self._check_intersection(horizontal_lines)
+            self._check_cross_walk(mid_lines)
+            self._check_intersection(horizontal_lines)
         else:
             # If no lines are detected, retain the original image
             self.output_image = cv_image
 
-        return self.output_image
+
+        return self.output_image 
+
+    def get_parameters(self):
+        return self.deviation, self.direction

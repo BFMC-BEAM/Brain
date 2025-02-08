@@ -80,7 +80,7 @@ SerialHandler = True
 
 # ------ New component flags starts here ------#
 DecisionMaker = True
-LaneDetection = False
+LaneDetection = True
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================
@@ -128,6 +128,7 @@ if DecisionMaker:
 if LaneDetection:
     processLaneDetection = processLaneDetection(queueList, logging, debugging = False)
     allProcesses.append(processLaneDetection)
+
 # ------ New component runs ends here ------#
 
 # ===================================== START PROCESSES ==================================
