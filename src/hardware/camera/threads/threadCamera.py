@@ -80,6 +80,9 @@ class threadCamera(ThreadWithStop):
         self.Queue_Sending()
         self.Configs()
 
+        self.act_deviation = 0.
+        self.act_direction = "straight"
+
     def subscribe(self):
         """Subscribe function. In this function we make all the required subscribe to process gateway"""
 
@@ -163,8 +166,8 @@ class threadCamera(ThreadWithStop):
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 out = self.processor.process_image(serialRequest)
 
-                deviation, direction = self.processor.get_parameters()
-
+                ret = self.processor.get_parameters(self.act_deviation)
+                
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", out)
  
@@ -173,8 +176,10 @@ class threadCamera(ThreadWithStop):
 
                 self.mainCameraSender.send(mainEncodedImageData)
                 self.serialCameraSender.send(serialEncodedImageData)
-                self.direction.send(direction)  # Enviar dirección
-                self.deviation.send(deviation)  # Enviar desviación
+                if ret[0] != -1000:
+                    self.direction.send(ret[0])  # Enviar dirección
+                    self.deviation.send(ret[1])  # Enviar desviación
+                    self.act_deviation = ret[0]
 
             send = not send
 

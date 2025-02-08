@@ -5,10 +5,11 @@ class DistanceModule():
         self.mult_increment = 0.4
         
     def check_distance(self, ultraVals, currentSpeed, currentSteer):
+
         mult_distance = self.min_distance * self.get_multiplier(currentSpeed)
-        if ultraVals is not None:
-            if ultraVals["top"] < mult_distance and int(currentSpeed) > 0:
-                return ("0",currentSteer) #stop the vehicle if front distance is less than 30 cm
+        # if ultraVals is not None:
+        #     if ultraVals["top"] < mult_distance and int(currentSpeed) > 0:
+        #         return ("0",currentSteer) #stop the vehicle if front distance is less than 30 cm
             #elif ultraVals["bottom"] < self.min_distance and  int(currentSpeed) < 0:
                 # return ("0",currentSteer) commented until back ultra instalation
                 #pass

@@ -20,12 +20,14 @@ class threadDecisionMaker(ThreadWithStop):
         self.currentSteer = "0"
         self.subscribers = {}
         self.distanceModule = DistanceModule()
+        self.controlSystem = ControlSystem()
         self.speedSender = messageHandlerSender(self.queuesList, SetSpeed)
         self.steerSender = messageHandlerSender(self.queuesList, SetSteer)
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
 
     def run(self):
+
         while self._running:
             ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
@@ -37,13 +39,15 @@ class threadDecisionMaker(ThreadWithStop):
             targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
-            decidedSteer = self.purepursuit.ControlSystem(deviation, direction)
-            print(decidedSteer)
+            
+            new_steer = self.controlSystem.adjust_direction(deviation, direction)
+
             # If there's change in steer or speed, sends the message to the nucleo board
 
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
-            if self.currentSteer != targetSteer:
+            if self.currentSteer != decidedSteer:
+                print("cambio")
                 self.steerSender.send(decidedSteer)
 
             
@@ -66,3 +70,6 @@ class threadDecisionMaker(ThreadWithStop):
         subscriber = messageHandlerSubscriber(self.queuesList, SteerMotor, "lastOnly", True)
         self.subscribers["SteerMotor"] = subscriber
 
+    # =============================== START ===============================================
+    def start(self):
+        super(threadDecisionMaker, self).start()
