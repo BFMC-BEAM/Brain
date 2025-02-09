@@ -155,10 +155,10 @@ class ControlSystem:
             direction (str): The direction of deviation ("left" or "right").
         """
         # Constants for proportional and derivative gains
-        KP = 0.12  # Proportional gain for steering control
-        KD = 0.0001  # Derivative gain for smoothing adjustments
-        MAX_STEERING_ANGLE = 40  # Maximum allowable steering angle in degrees
-        MIN_TURN_ANGLE = 5  # Minimum turn angle to ensure response
+        KP = 1  # Proportional gain for steering control
+        KD = 0.1  # Derivative gain for smoothing adjustments
+        MAX_STEERING_ANGLE = 24  # Maximum allowable steering angle in degrees
+        MIN_TURN_ANGLE = 1  # Minimum turn angle to ensure response
         
         if deviation is None:
             return
@@ -179,7 +179,8 @@ class ControlSystem:
         else:
             steering_angle = 0  # Keep straight if no deviation detected
 
-        # Apply the steering angle to the simulation controller
+        # Apply the steering angle to the simulation controllerstr(new_steer)
         self.previous_error = error
 
-        return steering_angle
+        # self.sim_controller.set_steering_angle(steering_angle)
+        return int(steering_angle)

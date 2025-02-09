@@ -778,9 +778,12 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         if len(left_line) == 1 and len(right_line) == 1:
             return None
         # Constants for calculations
-        LANE_WIDTH_METERS = 3.5  # Estimated lane width in meters
-        PIXELS_PER_METER = 100  # Approximation of pixels per meter in the image
-        OFFSET_PIXELS = int(LANE_WIDTH_METERS * PIXELS_PER_METER / 2)  # Half lane width in pixels
+        # LANE_WIDTH_CM = 3  # Estimated lane width in meters
+        # PIXELS_PER_CM = 220  # Approximation of pixels per meter in the image
+        # OFFSET_PIXELS = int(LANE_WIDTH_CM * PIXELS_PER_CM / 3)  # Half lane width in pixels
+        LANE_WIDTH_CM = 3.5  # Estimated lane width in meters
+        PIXELS_PER_CM = 100  # Approximation of pixels per meter in the image
+        OFFSET_PIXELS = int(LANE_WIDTH_CM * PIXELS_PER_CM / 2)  # Half lane width in pixels
         CIRCLE_RADIUS = 5  # Radius of the circle to mark the center point
         CIRCLE_COLOR = (255, 0, 255)  # Color of the circle (magenta in BGR format)
         TEXT_COLOR = (255, 255, 255)  # Color of the text (white in BGR format)
@@ -819,7 +822,18 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             center_y = (y1 + y2) // 2
         # else: 
         # Calculate deviation from the center of the image in meters
-        deviation = (center_x - image_center_x) / PIXELS_PER_METER
+        deviation = (center_x - image_center_x) / PIXELS_PER_CM
+
+        # Average the deviation over the last 10 frames
+        if not hasattr(self, 'deviation_history'):
+            self.deviation_history = []
+        
+        self.deviation_history.append(deviation)
+        
+        if len(self.deviation_history) > 10:
+            self.deviation_history.pop(0)
+        
+        deviation = np.mean(self.deviation_history)
 
         # Determine the direction of deviation
         if deviation > 0:
@@ -833,7 +847,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         cv2.circle(self.output_image, (center_x, center_y), CIRCLE_RADIUS, CIRCLE_COLOR, -1)
 
         # Display deviation and direction information
-        deviation_text = f"Deviation: {abs(deviation):.2f}cm {direction}"
+        deviation_text = f"Deviation: {abs(deviation * 100):.2f}cm {direction}"
         cv2.putText(
             self.output_image,
             deviation_text,
@@ -975,10 +989,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             minLineLength=HOUGH_MIN_LINE_LENGTH,
             maxLineGap=HOUGH_MAX_LINE_GAP,
         )
-        # print("*******************************************************")
-
-        # print(lines)
-        # print("*******************************************************")
         # Initialize line variables
         (
             mid_lines,

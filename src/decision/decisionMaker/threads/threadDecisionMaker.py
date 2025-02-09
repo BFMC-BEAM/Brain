@@ -18,6 +18,7 @@ class threadDecisionMaker(ThreadWithStop):
         self.debugging = debugging
         self.currentSpeed = "0"
         self.currentSteer = "0"
+        self.currentDeviation = 0.
         self.subscribers = {}
         self.distanceModule = DistanceModule()
         self.controlSystem = ControlSystem()
@@ -31,24 +32,28 @@ class threadDecisionMaker(ThreadWithStop):
         while self._running:
             ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
-            deviation = self.subscribers["Deviation"].receive()
             direction = self.subscribers["Direction"].receive()
             self.currentSpeed  = self.subscribers["CurrentSpeed"].receive() or self.currentSpeed 
             self.currentSteer  = self.subscribers["CurrentSteer"].receive() or self.currentSteer
             targetSpeed =  self.subscribers["SpeedMotor"].receive() or self.currentSpeed 
-            targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
+            targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer
+            new_deviation = self.subscribers["Deviation"].receive() or self.currentDeviation 
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
             
-            new_steer = self.controlSystem.adjust_direction(deviation, direction)
-
+        
+            
             # If there's change in steer or speed, sends the message to the nucleo board
 
+            # if self.currentSteer != decidedSteer:
+            #     self.steerSender.send(decidedSteer)
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
-            if self.currentSteer != decidedSteer:
-                print("cambio")
-                self.steerSender.send(decidedSteer)
+            if self.currentDeviation != new_deviation:
+                new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
+                self.steerSender.send(str(new_steer * 10 )) # Revisar: new_steer llega al dashboard dividido por 10 ( new_steer=12 dashboard=1.2)
+                self.currentDeviation = new_deviation
+
 
             
 

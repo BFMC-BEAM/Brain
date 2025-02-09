@@ -165,9 +165,7 @@ class threadCamera(ThreadWithStop):
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 out = self.processor.process_image(serialRequest)
-
                 ret = self.processor.get_parameters(self.act_deviation)
-                
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", out)
  
@@ -177,8 +175,8 @@ class threadCamera(ThreadWithStop):
                 self.mainCameraSender.send(mainEncodedImageData)
                 self.serialCameraSender.send(serialEncodedImageData)
                 if ret[0] != -1000:
-                    self.direction.send(ret[0])  # Enviar dirección
-                    self.deviation.send(ret[1])  # Enviar desviación
+                    self.direction.send(ret[1])  # Enviar dirección
+                    self.deviation.send(ret[0])  # Enviar desviación
                     self.act_deviation = ret[0]
 
             send = not send
