@@ -24,11 +24,13 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         self.in_intersection = False
         self.direction = None
         self.deviation = 0.0
+        self.cant_lines = 0
+        self.lane_history = []
 
     def _adjust_parameters(self, gray_image):
         """
         Adjusts the parameters for edge detection based on the lighting conditions 
-        of the input image using its histogram and intensity analysis.
+        of the input image using its histogram and intensity analysis.de
 
         Args:
             gray_image (np.ndarray): Grayscale version of the input image.
@@ -98,7 +100,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             hls = cv2.cvtColor(image, cv2.COLOR_BGR2HLS)
 
             # Lower and upper bound for white color in HLS
-            LOWER_WHITE = np.array([0, 160, 10])  # Lower bound for white color in HLS
+            LOWER_WHITE = np.array([0, 160, 10])  # Lower bound for white color in HLS  TODO= modificar
             UPPER_WHITE = np.array(
                 [255, 255, 255]
             )  # Upper bound for white color in HLS
@@ -175,9 +177,9 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             #     thickness=cv2.FILLED,  # Fill the rectangle
             # )
             # Simulator-specific coordinates for the triangular ROI
-            TRIANGLE_BOTTOM_LEFT = (50, 480)
-            TRIANGLE_BOTTOM_RIGHT = (550, 480)
-            TRIANGLE_TOP_CENTER = (331, 95)
+            TRIANGLE_BOTTOM_LEFT = (50, 480-10)
+            TRIANGLE_BOTTOM_RIGHT = (550, 480-10)
+            TRIANGLE_TOP_CENTER = (331, 95-5)
 
             # Define the rectangle area in the simulator (covers the bottom part of the image)
             RECTANGLE_BOTTOM_LEFT = (0, 301)
@@ -196,7 +198,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
         # Add the triangular area to the mask
         cv2.fillPoly(mask, triangle, 255)
-
+        
         # Apply the mask to the input image using a bitwise AND operation
         masked_image = cv2.bitwise_and(image, mask)
 
@@ -331,7 +333,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             filtered_lines = [line for fit, line in zip(fits, lines) if fit not in filtered_fits]
         else:
             for fit, line in zip(fits, lines):
-                if abs(fit[1] - intercept_mean) <= 220 or len(filtered_fits) == 0:
+                if abs(fit[1] - intercept_mean) <= 50 or len(filtered_fits) == 0:
                     filtered_fits.append(fit)
                 else:
                     filtered_lines.append(line)
@@ -424,21 +426,21 @@ class LaneDetectionProcessor(ImageProcessorInterface):
                 ):
                     horizontal_lines.append((x1, y1, x2, y2))
                     continue
-
                 # Detect potential crosswalks based on line position and length
                 if (
-                    -80 < angle <-40 or 40 < angle < 80
+                    -80 < angle <-60 or 60 < angle < 80
                     and CROSSWALK_X1_MIN < x1 < CROSSWALK_X1_MAX
                     and abs(x1 - x2) < CROSSWALK_LENGTH_MAX
                     
                 ):
                     mid_lines.append((x1, y1, x2, y2))
                     # continue
-                if -70 < angle <-50:
+
+                if -80 < angle <-40:
                     non_avg_left_lines.append((x1, y1, x2, y2))
                     left_curve_lines.append((x1, y1, x2, y2))
                     left_fit.append((slope, intercept))
-                elif 50 < angle < 70:
+                elif 40 < angle < 80:
                     non_avg_right_lines.append((x1, y1, x2, y2))
                     right_curve_lines.append((x1, y1, x2, y2))
                     right_fit.append((slope, intercept))
@@ -697,9 +699,8 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         TEXT_COLOR = (0, 255, 0)  # Green color for the text (BGR format)
         # Constants for intersection detection
         MIN_LINES_FOR_INTERSECTION = (
-            4  # Minimum number of lines to detect an intersection
+            30  # Minimum number of lines to detect an intersection
         )
-   
         # Initial text indicating whether a crosswalk is detected
         text = "Intersection: "
         # Determine if an intersection is detected
@@ -735,7 +736,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             None
         """
         # Constants for text annotation
-        MIN_LINES_FOR_CROSSWALK = 12  # Minimum number of lines to detect a crosswalk
+        MIN_LINES_FOR_CROSSWALK = 70  # Minimum number of lines to detect a crosswalk
         TEXT_POSITION = (0, 65)  # Position for the text annotation on the image
         FONT_TYPE = cv2.FONT_HERSHEY_SIMPLEX  # Font type for the annotation
         FONT_SCALE = 0.6  # Scale of the font
@@ -762,7 +763,22 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             FONT_THICKNESS,  # Text thickness
             cv2.LINE_AA,  # Line type for better rendering
         )
-
+    def interseccion_rectas(self, x1, y1, x2, y2, x3, y3, x4, y4):
+        # Calculamos las pendientes de ambas rectas
+        m1 = (y2 - y1) / (x2 - x1)
+        m2 = (y4 - y3) / (x4 - x3)
+        
+        # Si las pendientes son iguales, las rectas son paralelas y no se intersectan
+        if m1 == m2:
+            return None  # No hay intersección
+        
+        # Calculamos el valor de x de la intersección
+        x = ((y3 - y1) - (m2 * x3 - m1 * x1)) / (m1 - m2)
+        
+        # Calculamos el valor de y usando la ecuación de una de las rectas
+        y = m1 * (x - x1) + y1  # O también podrías usar m2 * (x - x3) + y3
+        
+        return (x, y)
     def _check_deviation(self, left_line, right_line):
         """
         Calculates the central point of the lane based on the detected lines and deviation from center.
@@ -778,12 +794,12 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         if len(left_line) == 1 and len(right_line) == 1:
             return None
         # Constants for calculations
-        # LANE_WIDTH_CM = 3  # Estimated lane width in meters
-        # PIXELS_PER_CM = 220  # Approximation of pixels per meter in the image
-        # OFFSET_PIXELS = int(LANE_WIDTH_CM * PIXELS_PER_CM / 3)  # Half lane width in pixels
-        LANE_WIDTH_CM = 3.5  # Estimated lane width in meters
-        PIXELS_PER_CM = 100  # Approximation of pixels per meter in the image
-        OFFSET_PIXELS = int(LANE_WIDTH_CM * PIXELS_PER_CM / 2)  # Half lane width in pixels
+        # LANE_WIDTH_M = 3  # Estimated lane width in meters
+        # PIXELS_PER_M = 220  # Approximation of pixels per meter in the image
+        # OFFSET_PIXELS = int(LANE_WIDTH_M * PIXELS_PER_M / 3)  # Half lane width in pixels
+        LANE_WIDTH_M = 3.5  # Estimated lane width in meters
+        PIXELS_PER_M = 200  # Approximation of pixels per meter in the image
+        OFFSET_PIXELS = int(LANE_WIDTH_M * PIXELS_PER_M / 5)  # Half lane width in pixels
         CIRCLE_RADIUS = 5  # Radius of the circle to mark the center point
         CIRCLE_COLOR = (255, 0, 255)  # Color of the circle (magenta in BGR format)
         TEXT_COLOR = (255, 255, 255)  # Color of the text (white in BGR format)
@@ -795,9 +811,9 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         image_center_x = self.output_image.shape[1] // 2
 
         center_x, center_y = 0, 0
-
         # Case 1: Both left and right lines are detected
         if len(left_line) != 1 and len(right_line) != 1:
+            self.cant_lines = 2
             # Calculate the bottom midpoint of both lines
             left_bottom_x = (left_line[0] + left_line[2]) // 2
             left_bottom_y = (left_line[1] + left_line[3]) // 2
@@ -808,32 +824,57 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             # Average the midpoints to find the center
             center_x = (left_bottom_x + right_bottom_x) // 2
             center_y = (left_bottom_y + right_bottom_y) // 2
+            interseccion = self.interseccion_rectas(left_line[0], left_line[1], left_line[2], left_line[3], 
+                                       right_line[0], right_line[1], right_line[2], right_line[3])
 
         # Case 2: Only the left line is detected (right curve scenario)
-        elif len(left_line) != 1 and len(right_line) == 1:
+        elif len(left_line) != 1 and len(right_line) == 1:            
+
+            self.cant_lines = 1
             x1, y1, x2, y2 = left_line
-            center_x = ((x1 + x2) // 2) + OFFSET_PIXELS
+
+            if x2 - x1 == 0:  # Evita la división por cero si la recta es vertical
+                x3 = x1  # Si la recta es vertical, todos los puntos tienen la misma x
+            else:
+                m = (y2 - y1) / (x2 - x1)
+                y3 = -53
+                x3 = x1 + (y3 - y1) / m
+
+            center_x = int(x3) #((x1 + x2) // 2) - OFFSET_PIXELS
             center_y = (y1 + y2) // 2
 
         # Case 3: Only the right line is detected (left curve scenario)
         elif len(left_line) == 1 and len(right_line) != 1:
+
+            self.cant_lines = 1
             x1, y1, x2, y2 = right_line
-            center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
+            # Calcular la pendiente de la recta
+            if x2 - x1 == 0:  # Evita la división por cero si la recta es vertical
+                x3 = x1  # Si la recta es vertical, todos los puntos tienen la misma x
+            else:
+                m = (y2 - y1) / (x2 - x1)
+                y3 = -53
+                x3 = x1 + (y3 - y1) / m
+
+            center_x = int(x3) #((x1 + x2) // 2) - OFFSET_PIXELS
             center_y = (y1 + y2) // 2
-        # else: 
+        #
+        else:
+            self.cant_lines = 0 
+
         # Calculate deviation from the center of the image in meters
-        deviation = (center_x - image_center_x) / PIXELS_PER_CM
+        deviation = (center_x - image_center_x) / PIXELS_PER_M
 
         # Average the deviation over the last 10 frames
-        if not hasattr(self, 'deviation_history'):
-            self.deviation_history = []
+        # if not hasattr(self, 'deviation_history'):
+        #     self.deviation_history = []
         
-        self.deviation_history.append(deviation)
+        # self.deviation_history.append(deviation)
         
-        if len(self.deviation_history) > 10:
-            self.deviation_history.pop(0)
+        # if len(self.deviation_history) > 10:
+        #     self.deviation_history.pop(0)
         
-        deviation = np.mean(self.deviation_history)
+        # deviation = np.mean(self.deviation_history)
 
         # Determine the direction of deviation
         if deviation > 0:
@@ -858,7 +899,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             TEXT_THICKNESS,
             LINE_TYPE,
         )
-
         return deviation, direction
 
     def _is_similar(self, line1, line2, threshold):
@@ -954,32 +994,23 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             np.ndarray: Processed output image with lane lines and intersection status.
         """
         # Constants for Hough Transform parameters
-        HOUGH_RHO_RESOLUTION = (
-            2  # Distance resolution of the Hough transform (in pixels)
-        )
-        HOUGH_THETA_RESOLUTION = (
-            np.pi / 180
-        )  # Angular resolution of the Hough transform (in radians)
-        HOUGH_THRESHOLD = (
-            150  # Minimum number of intersections in Hough space to consider a line
-        )
+        HOUGH_RHO_RESOLUTION = 2  # Distance resolution of the Hough transform (in pixels)
+        HOUGH_THETA_RESOLUTION = np.pi / 180  # Angular resolution of the Hough transform (in radians)
+        HOUGH_THRESHOLD = 150  # Minimum number of intersections in Hough space to consider a line
         HOUGH_MIN_LINE_LENGTH = 50  # Minimum length of a line segment to be considered
         HOUGH_MAX_LINE_GAP = 150  # Maximum gap between line segments to connect them
-
+        MAX_HISTORY_SIZE = 3  # Maximum number of frames stored in lane history
 
         # Preprocess the input image
         lane_image = cv_image.copy()
-        border_image = self._preprocessing(
-            lane_image
-        )  # Apply preprocessing (e.g., edge detection)
+        border_image = self._preprocessing(lane_image)  # Apply preprocessing (e.g., edge detection)
 
         # Extract the region of interest (ROI) for the road
         cropped_image = self._get_ROI_road(border_image)
 
         # Apply perspective warp to get a bird's-eye view
         warped_image = self._warp_image(cropped_image)
-        # cv2.imshow("Warped Image", warped_image)  # Debug visualization
-
+        
         # Detect lines using the Hough Transform
         lines = cv2.HoughLinesP(
             warped_image,
@@ -989,39 +1020,53 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             minLineLength=HOUGH_MIN_LINE_LENGTH,
             maxLineGap=HOUGH_MAX_LINE_GAP,
         )
-        # Initialize line variables
+        
+        # Initialize lane line-related variables
         (
             mid_lines,
             horizontal_lines,
             deviation,
             direction,
             left_curve_lines,
-            right_curve_lines
-        ) = (
-            None,
-            None,
-            None,
-            None,
-            None,
-            None
-        )
-        new_left_line, new_right_line = None, None
+            right_curve_lines,
+            new_left_line,
+            new_right_line
+        ) = (None, None, None, None, None, None, None, None)
 
         if lines is not None:
+            # Store detected lines in lane history
+            self.lane_history.append(lines)
+
+            # Flatten lane history to ensure correct data format
+            lines = np.vstack(self.lane_history)
+
+            # Process detected lines to classify and analyze lanes
             new_left_line, new_right_line, mid_lines, horizontal_lines, left_curve_lines, right_curve_lines = self._check_lane(lines, lane_image, True)
+            
+            # Calculate lane deviation
             ret = self._check_deviation(new_left_line, new_right_line)
             if ret is not None:
                 self.deviation, self.direction = ret
-            # self._check_curve(left_curve_lines, right_curve_lines)
+            
+            # Check for crosswalks and intersections
             self._check_cross_walk(mid_lines)
             self._check_intersection(horizontal_lines)
+            
+            # Maintain a limited history of detected lines
+            if len(self.lane_history) > MAX_HISTORY_SIZE:
+                self.lane_history.pop(0)
         else:
             # If no lines are detected, retain the original image
             self.output_image = cv_image
 
         return self.output_image
+    
     def get_parameters(self, old_dev):
         if abs(old_dev - self.deviation) < 0.2:
             return -1000, 0
         else:
             return float(self.deviation), self.direction
+    def get_lines(self):
+        if self.cant_lines is None:
+            return 0
+        return self.cant_lines

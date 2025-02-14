@@ -42,7 +42,8 @@ from src.utils.messages.allMessages import (
     Brightness,
     Contrast,
     Deviation,
-    Direction
+    Direction,
+    Lines
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -73,7 +74,9 @@ class threadCamera(ThreadWithStop):
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
         self.deviation = messageHandlerSender(self.queuesList, Deviation)
         self.direction = messageHandlerSender(self.queuesList, Direction)
+        self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
         self.processor = LaneDetectionProcessor(type="simulator")
+        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
 
         self.subscribe()
         self._init_camera()
@@ -166,6 +169,8 @@ class threadCamera(ThreadWithStop):
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 out = self.processor.process_image(serialRequest)
                 ret = self.processor.get_parameters(self.act_deviation)
+                new_cant_lines = self.processor.get_lines()
+
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", out)
  
@@ -174,6 +179,10 @@ class threadCamera(ThreadWithStop):
 
                 self.mainCameraSender.send(mainEncodedImageData)
                 self.serialCameraSender.send(serialEncodedImageData)
+
+                if new_cant_lines != self.act_lines:
+                    self.lines.send(new_cant_lines)
+                    self.act_lines = new_cant_lines
                 if ret[0] != -1000:
                     self.direction.send(ret[1])  # Enviar dirección
                     self.deviation.send(ret[0])  # Enviar desviación
