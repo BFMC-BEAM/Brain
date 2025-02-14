@@ -1,8 +1,8 @@
 
-from ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
-from ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
-from utils.constants import BRAINLESS, CONTROL_FOR_SIGNS
-from utils.messages import messageHandlerSender
+from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
+from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
+from src.utils.constants import BRAINLESS, CONTROL_FOR_SIGNS
+from src.utils.messages import messageHandlerSender
 
 ALWAYS_ON_ROUTINES = [CONTROL_FOR_SIGNS]
 LANE_FRAME_SKIP = 1
@@ -60,7 +60,7 @@ class StateMachine():
     #===================== STATES =====================#
     def brainless(self):
         # SKIP FRAMES IF NEEDED
-        if not self.frame_count % LANE_FRAME_SKIP != 0:
+        if self.frame_count % LANE_FRAME_SKIP != 0:
             return
         self.frame = self.lane_processor.process_image(self.frame)
         ret = self.lane_processor.get_parameters(self.act_deviation)

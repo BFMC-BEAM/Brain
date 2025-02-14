@@ -296,67 +296,103 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         return warped
 
     def _filter_outliers(self, fits, lines, image, side, window_name=None):
-        """
-        Filters out line fits that are outliers based only on the intercept.
+            """
+            Filters out line fits that are outliers based only on the intercept.
 
-        Args:
-            fits (list): List of tuples containing (slope, intercept).
-            lines (list): List of original lines corresponding to fits.
-            image (np.ndarray): Original image used for visualization.
-            window_name (str): Name of the window to display filtered lines.
-            threshold (float): Number of standard deviations to use for filtering.
+            Args:
+                fits (list): List of tuples containing (slope, intercept).
+                lines (list): List of original lines corresponding to fits.
+                image (np.ndarray): Original image used for visualization.
+                side (str): Indicates whether filtering is for the left or right side.
+                window_name (str, optional): Name of the window to display filtered lines.
 
-        Returns:
-            list: Filtered list of fits.
-        """
-        intercepts = np.array([fit[1] for fit in fits])
-        intercept_mean = np.mean(intercepts)
+            Returns:
+                list: Filtered list of fits.
+            """
+            # Define constants for threshold values
+            CROSSWALK_THRESHOLD = 10  # Threshold for filtering based on reference lines in crosswalk
+            HISTOGRAM_BINS = 10  # Number of bins used for histogram analysis
+            STD_DEV_ADJUSTMENT = 40  # Additional margin added to the standard deviation range
+            BIN_THRESHOLD = 5  # Minimum count of values in a bin to be considered
+            
+            # Extract intercept values from the fits
+            intercepts = np.array([fit[1] for fit in fits])
 
-        threshold = 10
+            # Initialize filtered lists
+            filtered_fits = []
+            filtered_lines = []
+            max_min = []
 
-        # Filter fits based on the intercept threshold
-        filtered_fits = []
-        filtered_lines = []
-        # Determine the reference line based on the side
-        max_min = []
-        if self.in_cross_walk is True:
-            for line in lines:
-                max_min.append(line[0])
-                max_min.append(line[2])
-            if side == 'left':
-                ref_x = min(max_min)
-                filtered_fits = [fit for fit, line in zip(fits, lines) if min(line[0], line[2]) <= ref_x + threshold]
-            else:  # side == 'right'
-                ref_x = max(max_min)
-                filtered_fits = [fit for fit, line in zip(fits, lines) if max(line[0], line[2]) >= ref_x - threshold]
+            if self.in_cross_walk:
+                # Determine reference x-coordinates based on the side
+                for line in lines:
+                    max_min.append(line[0])
+                    max_min.append(line[2])
+                if side == 'left':
+                    ref_x = min(max_min)
+                    filtered_fits = [fit for fit, line in zip(fits, lines) if min(line[0], line[2]) <= ref_x + CROSSWALK_THRESHOLD]
+                else:  # side == 'right'
+                    ref_x = max(max_min)
+                    filtered_fits = [fit for fit, line in zip(fits, lines) if max(line[0], line[2]) >= ref_x - CROSSWALK_THRESHOLD]
+                
+                # Collect lines that were filtered out
+                filtered_lines = [line for fit, line in zip(fits, lines) if fit not in filtered_fits]
+            else:
+                # Compute histogram of intercepts to find the densest region
+                hist, bin_edges = np.histogram(intercepts, bins=HISTOGRAM_BINS)
+                
+                # Find the first bin with enough values
+                # print("*********************************")
+                if side == "right":
+                    # print(intercepts)
+                    for max_bin_idx in range(len(hist)):
+                        if hist[max_bin_idx] >= BIN_THRESHOLD:
+                            break
+                else: # side == "left"
+                    # print(intercepts)
 
-            filtered_lines = [line for fit, line in zip(fits, lines) if fit not in filtered_fits]
-        else:
-            for fit, line in zip(fits, lines):
-                if abs(fit[1] - intercept_mean) <= 50 or len(filtered_fits) == 0:
-                    filtered_fits.append(fit)
-                else:
-                    filtered_lines.append(line)
-        # Display filtered lines on the image
-        if filtered_lines and window_name is not None:
-            filtered_image = image.copy()
-            for line in filtered_lines:
-                x1, y1, x2, y2 = line
+                    for max_bin_idx in range(len(hist) - 1, -1, -1):
+                        if hist[max_bin_idx] >= BIN_THRESHOLD:
+                            break
+                # print("*********************************")
+                
+                # Determine the range of the selected bin
+                min_val, max_val = bin_edges[max_bin_idx], bin_edges[max_bin_idx + 1]
+                in_bin_values = [intercept for intercept in intercepts if min_val <= intercept <= max_val]
+                
+                # Compute mean intercept within the densest bin
+                mean_intercept = np.mean(in_bin_values) if in_bin_values else np.mean(intercepts)
+                
+                # Define an acceptance range around the mean intercept
+                accept_range = (mean_intercept - STD_DEV_ADJUSTMENT, mean_intercept + STD_DEV_ADJUSTMENT)
 
-                # Unwarp the line coordinates if necessary
-                if hasattr(self, "M_inv") and self.M_inv is not None:
-                    pts = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
-                    pts = cv2.perspectiveTransform(pts[None, :, :], self.M_inv)[0]
-                    x1, y1 = int(pts[0][0]), int(pts[0][1])
-                    x2, y2 = int(pts[1][0]), int(pts[1][1])
+                # Filter intercepts based on the defined range
+                for fit, line in zip(fits, lines):
+                    if accept_range[0] <= fit[1] <= accept_range[1] or not filtered_fits:
+                        filtered_fits.append(fit)
+                    else:
+                        filtered_lines.append(line)
 
-                # Draw the unwarped line
-                cv2.line(filtered_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+            # Display filtered lines on the image if visualization is enabled
+            if filtered_lines and window_name is not None:
+                filtered_image = image.copy()
+                for line in filtered_lines:
+                    x1, y1, x2, y2 = line
 
-            cv2.imshow(window_name, filtered_image)
-            cv2.waitKey(1)
+                    # Unwarp the line coordinates if a transformation matrix exists
+                    if hasattr(self, "M_inv") and self.M_inv is not None:
+                        pts = np.array([[x1, y1], [x2, y2]], dtype=np.float32)
+                        pts = cv2.perspectiveTransform(pts[None, :, :], self.M_inv)[0]
+                        x1, y1 = int(pts[0][0]), int(pts[0][1])
+                        x2, y2 = int(pts[1][0]), int(pts[1][1])
 
-        return filtered_fits
+                    # Draw the transformed line on the image
+                    cv2.line(filtered_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
+
+                cv2.imshow(window_name, filtered_image)
+                cv2.waitKey(1)
+
+            return filtered_fits
 
     def _line_classifier(self, image, lines):
         """
@@ -957,18 +993,10 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
         if len(avg_lines[0]) != 1:  # If a new left line is detected
             new_left_line = avg_lines[0]
-        if self.previous_left_line is not None and self._is_similar(new_left_line, self.previous_left_line, threshold=20):
-            new_left_line = self.previous_left_line  # Keep the previous line if they are similar
-        else:
-            self.previous_left_line = new_left_line  # Update the previous line
-
+  
 
         if len(avg_lines[1]) != 1:  # If a new right line is detected
             new_right_line = avg_lines[1]
-        if self.previous_right_line is not None and self._is_similar(new_right_line, self.previous_right_line, threshold=20):
-            new_right_line = self.previous_right_line  # Keep the previous line if they are similar
-        else:
-            self.previous_right_line = new_right_line  # Update the previous line
 
         avg_line_image = self._display_lines(lane_image, avg_lines, AVG_LINE_COLOR)
 

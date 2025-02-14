@@ -29,7 +29,7 @@
 import cv2
 import threading
 import base64
-from decision.decisionMaker.stateMachine import StateMachine
+from src.decision.decisionMaker.stateMachine import StateMachine
 import picamera2
 import time
 
