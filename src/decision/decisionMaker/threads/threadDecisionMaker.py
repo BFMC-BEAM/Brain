@@ -1,6 +1,7 @@
 from src.decision.distance.distanceModule import DistanceModule
+from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera, CV_ObjectDetection_Type)
+from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera, CV_ObjectDetection_Type, Deviation, Direction, Lines)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 
@@ -18,8 +19,11 @@ class threadDecisionMaker(ThreadWithStop):
         self.debugging = debugging
         self.currentSpeed = "0"
         self.currentSteer = "0"
+        self.currentDeviation = 0.
+        self.currentLines = -1
         self.subscribers = {}
         self.distanceModule = DistanceModule()
+        self.controlSystem = ControlSystem()
         self.speedSender = messageHandlerSender(self.queuesList, SetSpeed)
         self.steerSender = messageHandlerSender(self.queuesList, SetSteer)
         self.subscribe()
@@ -28,22 +32,45 @@ class threadDecisionMaker(ThreadWithStop):
 
     
     def run(self):
+
         while self._running:
             ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
             objectDetection = self.subscribers["CV_ObjectDetection_Type"].receive()
+            direction = self.subscribers["Direction"].receive()
             self.currentSpeed  = self.subscribers["CurrentSpeed"].receive() or self.currentSpeed 
             self.currentSteer  = self.subscribers["CurrentSteer"].receive() or self.currentSteer
             targetSpeed =  self.subscribers["SpeedMotor"].receive() or self.currentSpeed 
-            targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
+            targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer
+            new_deviation = self.subscribers["Deviation"].receive() or self.currentDeviation 
+            new_lines = self.subscribers["Lines"].receive() or self.currentLines
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
             decidedSpeed = self.distanceModule.handle_stop_signal_logic(objectDetection, decidedSpeed)
+            
+        
+            
             # If there's change in steer or speed, sends the message to the nucleo board
+
+            # if self.currentSteer != decidedSteer:
+            #     self.steerSender.send(decidedSteer)
+            
+            #if self.currentLines != new_lines:
+             #   if new_lines == 2:
+              #      self.speedSender.send("200")
+               # elif new_lines == 1:
+                #    self.speedSender.send("100")
+                #self.currentLines = new_lines
+
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
-            if self.currentSteer != targetSteer:
-                self.steerSender.send(decidedSteer)
+            if self.currentDeviation != new_deviation:
+                new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
+                # print("dev: ", new_deviation, "steer: ", new_steer)
+                # new_steer = self.controlSystem.pure_pursuit(new_deviation, direction)
+                self.steerSender.send(str(new_steer * 10 )) # Revisar: new_steer llega al dashboard dividido por 10 ( new_steer=12 dashboard=1.2)
+                self.currentDeviation = new_deviation
+
 
 
     def subscribe(self):
@@ -52,6 +79,13 @@ class threadDecisionMaker(ThreadWithStop):
         self.subscribers["Ultra"] = subscriber
         subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectDetection_Type, "lastOnly", True)
         self.subscribers["CV_ObjectDetection_Type"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, Deviation, "lastOnly", True)
+        self.subscribers["Deviation"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, Direction, "lastOnly", True)
+        self.subscribers["Direction"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, Lines, "lastOnly", True)
+        self.subscribers["Lines"] = subscriber
+
         subscriber = messageHandlerSubscriber(self.queuesList, CurrentSpeed, "lastOnly", True)
         self.subscribers["CurrentSpeed"] = subscriber
         subscriber = messageHandlerSubscriber(self.queuesList, CurrentSteer, "lastOnly", True)
@@ -61,3 +95,6 @@ class threadDecisionMaker(ThreadWithStop):
         subscriber = messageHandlerSubscriber(self.queuesList, SteerMotor, "lastOnly", True)
         self.subscribers["SteerMotor"] = subscriber
 
+    # =============================== START ===============================================
+    def start(self):
+        super(threadDecisionMaker, self).start()

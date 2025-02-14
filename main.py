@@ -81,7 +81,7 @@ SerialHandler = True
 
 # ------ New component flags starts here ------#
 DecisionMaker = True
-LaneDetection = False
+LaneDetection = True
 ObjectDetection = False
 # ------ New component flags ends here ------#
 
@@ -134,6 +134,7 @@ if LaneDetection:
 if ObjectDetection:
     processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
     allProcesses.append(processObjectDetection)
+
 # ------ New component runs ends here ------#
 
 # ===================================== START PROCESSES ==================================

@@ -59,6 +59,7 @@ class LaneKeeping(Enum):
     msgID = 5
     msgType = "int"
 
+
 ################################# processCarsAndSemaphores ##################################
 class Cars(Enum):
     Queue = "General"
@@ -255,7 +256,32 @@ class CVCamera(Enum):
     Owner = "ComputerVision"
     msgID = 1
     msgType = "str"
+
+class Deviation(Enum):
+    Queue = "Critical"
+    Owner = "ComputerVision"
+    msgID = 2
+    msgType = "float"
+
+class Direction(Enum):
+    Queue = "Critical"
+    Owner = "ComputerVision"
+    msgID = 3
+    msgType = "str"
+class Lines(Enum):
+    Queue = "General"
+    Owner = "ComputerVision" 
+    msgID = 4
+    msgType = "int"
+    
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
+
+class CV_ObjectDetection_Type(Enum):
+    Queue = "General"
+    Owner = "CV_ObjectDetection_Type"
+    msgID = 1
+    msgType = "str"
+
 
 class CV_ObjectDetection_Type(Enum):
     Queue = "General"

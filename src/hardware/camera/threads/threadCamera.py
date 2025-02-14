@@ -29,6 +29,7 @@
 import cv2
 import threading
 import base64
+from decision.decisionMaker.stateMachine import StateMachine
 import picamera2
 import time
 
@@ -36,13 +37,19 @@ from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcess
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 from src.utils.messages.allMessages import (
     CVCamera,
+    Deviation,
+    Direction,
+    Lines,
     mainCamera,
     serialCamera,
     Recording,
     Record,
     Brightness,
     Contrast,
-    CV_ObjectDetection_Type
+    CV_ObjectDetection_Type,
+    Deviation,
+    Direction,
+    Lines
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -71,14 +78,22 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
+        self.deviation = messageHandlerSender(self.queuesList, Deviation)
+        self.direction = messageHandlerSender(self.queuesList, Direction)
+        self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
         self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
-        #self.processor = LaneDetectionProcessor(type="simulator")
+        self.lane_processor = LaneDetectionProcessor(type="simulator")
         self.processor = ObjectDetectionProcessor()
+        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
+        self.state_machine = StateMachine(self.lane_processor, self.processor, self.direction, self.deviation, self.ObjectDetection_Type, self.lines )
 
         self.subscribe()
         self._init_camera()
         self.Queue_Sending()
         self.Configs()
+
+        self.act_deviation = 0.
+        self.act_direction = "straight"
 
     def subscribe(self):
         """Subscribe function. In this function we make all the required subscribe to process gateway"""
@@ -162,15 +177,11 @@ class threadCamera(ThreadWithStop):
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
-                out, valid_distance = self.processor.process_image(serialRequest)
+                self.state_machine.run(serialRequest)
 
-                if not valid_distance:
-                    self.ObjectDetection_Type.send("stop_signal")
-                else:
-                    self.ObjectDetection_Type.send("no_signal")
 
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
-                _, serialEncodedImg = cv2.imencode(".jpg", out)
+                _, serialEncodedImg = cv2.imencode(".jpg", self.state_machine.frame)
  
                 mainEncodedImageData = base64.b64encode(mainEncodedImg).decode("utf-8")
                 serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
