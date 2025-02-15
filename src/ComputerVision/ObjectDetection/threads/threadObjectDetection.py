@@ -21,7 +21,7 @@ class threadObjectDetection(ThreadWithStop):
         self.debugging = debugging
         self.subscribers = {}
         self.subscribe()
-        self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
+        self.image_sender = messageHandlerSender(self.queuesList, serialCamera)
         self.processor = ObjectDetectionProcessor()
         super(threadObjectDetection, self).__init__()
 
@@ -43,7 +43,7 @@ class threadObjectDetection(ThreadWithStop):
                 out = self.processor.process_image(cv_image)
                 _, encoded_output = cv2.imencode(".jpg", out)
                 serialEncodedImageData = base64.b64encode(encoded_output).decode("utf-8")
-                self.image_sender.send(serialEncodedImageData)
+                #self.image_sender.send(serialEncodedImageData)
 
     def subscribe(self):
         subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)

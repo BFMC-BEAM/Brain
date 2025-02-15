@@ -1,7 +1,29 @@
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CurrentSpeed, CurrentSteer, SetSpeed, SetSteer, SpeedMotor, SteerMotor, Ultra, mainCamera, Deviation, Direction, Lines, DrivingMode)
+from src.decision.decisionMaker.stateMachine import StateMachine
+from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
+from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
+import cv2
+import base64
+import numpy as np
+
+from src.utils.messages.allMessages import (
+    CurrentSpeed, 
+    CurrentSteer, 
+    SetSpeed, 
+    SetSteer, 
+    SpeedMotor, 
+    SteerMotor, 
+    Ultra, 
+    CVCamera, 
+    CVCameraProcessed,
+    serialCamera,
+    CV_ObjectDetection_Type,
+    Deviation, 
+    Direction, 
+    Lines, 
+    DrivingMode)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 
@@ -28,13 +50,24 @@ class threadDecisionMaker(ThreadWithStop):
         self.controlSystem = ControlSystem()
         self.speedSender = messageHandlerSender(self.queuesList, SetSpeed)
         self.steerSender = messageHandlerSender(self.queuesList, SetSteer)
+        self.deviation = messageHandlerSender(self.queuesList, Deviation)
+        self.direction = messageHandlerSender(self.queuesList, Direction)
+        self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
+        self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
+        self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
+        self.lane_processor = LaneDetectionProcessor(type="simulator")
+        self.processor = ObjectDetectionProcessor()
+        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
+        #self.state_machine = StateMachine(self.lane_processor, self.processor, self.direction, self.deviation, self.ObjectDetection_Type, self.lines )
         self.prev_drivingMode = "stop"
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
 
+
     def run(self):
 
         while self._running:
+
             ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
             direction = self.subscribers["Direction"].receive()
@@ -45,9 +78,28 @@ class threadDecisionMaker(ThreadWithStop):
             new_deviation = self.subscribers["Deviation"].receive() or self.currentDeviation 
             new_lines = self.subscribers["Lines"].receive() or self.currentLines
             curr_drivingMode = self.subscribers["DrivingMode"].receive() or self.prev_drivingMode
+            FrameCamera = self.subscribers["serialCamera"].receive()
+
+            if FrameCamera is None:
+                continue
+
+            #FrameCamera = base64.b64encode(FrameCamera).encode("utf-8")
+            #print(FrameCamera)
+            decoded_image_data = base64.b64decode(FrameCamera)
+            
+            # Paso 2: Convertir los bytes en una imagen
+            nparr = np.frombuffer(decoded_image_data, np.uint8)
+            FrameCamera = cv2.imdecode(nparr, cv2.COLOR_YUV2BGR_I420)
+
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
-                
+            #self.state_machine.run(FrameCamera)
+            FrameCameraPro=self.lane_processor.process_image(FrameCamera)
+            
+            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)#self.state_machine.frame)
+
+            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+            self.serialCameraSender.send(serialEncodedImageData)
             # If there's change in steer or speed, sends the message to the nucleo board
 
             # if self.currentSteer != decidedSteer:
@@ -75,7 +127,7 @@ class threadDecisionMaker(ThreadWithStop):
             if curr_drivingMode is "auto":
                 print("Auto")
 
-            time.sleep(0.2)  # Pausa la ejecución por 2 segundos
+            #time.sleep(0.2)  # Pausa la ejecución por 2 segundos
 
 
             
@@ -102,6 +154,12 @@ class threadDecisionMaker(ThreadWithStop):
 
         subscriber = messageHandlerSubscriber(self.queuesList, DrivingMode, "lastOnly", True)
         self.subscribers["DrivingMode"] = subscriber
+
+        subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
+        self.subscribers["serialCamera"] = subscriber
+
+        subscriber = messageHandlerSubscriber(self.queuesList, CVCameraProcessed, "lastOnly", True)
+        self.subscribers["CVCameraProcessed"] = subscriber
 
     # =============================== START ===============================================
     def start(self):

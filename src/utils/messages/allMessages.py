@@ -257,21 +257,27 @@ class CVCamera(Enum):
     msgID = 1
     msgType = "str"
 
+class CVCameraProcessed(Enum):      #queue para enviar el frame con el procesamiento de deteccion de linea y objeto
+    Queue = "General"
+    Owner = "ComputerVision"
+    msgID = 2
+    msgType = "str"
+
 class Deviation(Enum):
     Queue = "Critical"
     Owner = "ComputerVision"
-    msgID = 2
+    msgID = 3
     msgType = "float"
 
 class Direction(Enum):
     Queue = "Critical"
     Owner = "ComputerVision"
-    msgID = 3
+    msgID = 4
     msgType = "str"
 class Lines(Enum):
     Queue = "General"
     Owner = "ComputerVision" 
-    msgID = 4
+    msgID = 5
     msgType = "int"
     
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}

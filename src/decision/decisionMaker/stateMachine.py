@@ -6,7 +6,7 @@ from src.utils.messages import messageHandlerSender
 
 ALWAYS_ON_ROUTINES = [CONTROL_FOR_SIGNS]
 LANE_FRAME_SKIP = 1
-SIGNAL_FRAME_SKIP = 10
+SIGNAL_FRAME_SKIP = 25
 
 
 class State():
@@ -77,7 +77,7 @@ class StateMachine():
     #===================== ROUTINES =====================#
     def control_for_signs(self):
         # SKIP FRAMES IF NEEDED
-        if not self.frame_count % SIGNAL_FRAME_SKIP != 0:
+        if self.frame_count % SIGNAL_FRAME_SKIP != 0:
             return
         out, valid_distance = self.sign_processor.process_image(self.frame)
         self.frame = out
