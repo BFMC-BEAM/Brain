@@ -280,6 +280,7 @@ class Lines(Enum):
     msgID = 5
     msgType = "int"
     
+    
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
 
 class CV_ObjectDetection_Type(Enum):
@@ -287,14 +288,6 @@ class CV_ObjectDetection_Type(Enum):
     Owner = "CV_ObjectDetection_Type"
     msgID = 1
     msgType = "str"
-
-
-class CV_ObjectDetection_Type(Enum):
-    Queue = "General"
-    Owner = "CV_ObjectDetection_Type"
-    msgID = 1
-    msgType = "str"
-
 
 ######################    From DecisionMaker  ###########################
 class SetSpeed(Enum):

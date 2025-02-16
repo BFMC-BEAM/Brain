@@ -2,10 +2,11 @@ import cv2
 import base64
 import numpy as np
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CVCamera, serialCamera)
+from src.utils.messages.allMessages import (CVCamera, serialCamera, CV_ObjectDetection_Type)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
+import time
 
 class threadObjectDetection(ThreadWithStop):
     """This thread handles ObjectDetection.
@@ -22,11 +23,14 @@ class threadObjectDetection(ThreadWithStop):
         self.subscribers = {}
         self.subscribe()
         self.image_sender = messageHandlerSender(self.queuesList, serialCamera)
+        self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
+        self.object
         self.processor = ObjectDetectionProcessor()
         super(threadObjectDetection, self).__init__()
 
     def run(self):
         while self._running:
+            start_time = time.time()
             image = self.subscribers["Images"].receive()
             if image is not None:
                 if image.startswith("data:image"):
@@ -40,10 +44,15 @@ class threadObjectDetection(ThreadWithStop):
                     print("Error: cv2.imdecode failed.")
                     continue
                 
-                out = self.processor.process_image(cv_image)
+                out, distance = self.processor.process_image(cv_image)
                 _, encoded_output = cv2.imencode(".jpg", out)
                 serialEncodedImageData = base64.b64encode(encoded_output).decode("utf-8")
                 #self.image_sender.send(serialEncodedImageData)
+                self.ObjectDetection_Type.send(distance)
+                
+            end_time = time.time()
+            iteration_time = end_time - start_time
+            print(f"Iteration time: {iteration_time:.4f} seconds")
 
     def subscribe(self):
         subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
