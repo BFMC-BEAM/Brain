@@ -25,51 +25,48 @@ class threadLaneDetection(ThreadWithStop):
         self.image_sender = messageHandlerSender(self.queuesList, serialCamera)
         self.deviation = messageHandlerSender(self.queuesList, Deviation)
         self.direction = messageHandlerSender(self.queuesList, Direction)
-        self.lines = messageHandlerSender(self.queuesList, Lines)
+        self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
         self.processor = LaneDetectionProcessor(type="simulator")
         super(threadLaneDetection, self).__init__()
+        self.act_deviation = 0.
+        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
+
 
     def run(self):
         while self._running:
+            FrameCamera = self.subscribers["serialCamera"].receive()
+
+            if FrameCamera is None:
+                continue
             start_time = time.time()
-            image = self.subscribers["Images"].receive()
-            if image is not None:
-                if image.startswith("data:image"):
-                    image = image.split(",")[1]
 
-                # Decodificar la imagen Base64 a bytes
-                image_data = base64.b64decode(image)
 
-                # Convertir los bytes a un array de numpy
-                np_array = np.frombuffer(image_data, dtype=np.uint8)
-
-                # Decodificar el array numpy a una imagen OpenCV
-                cv_image = cv2.imdecode(np_array, cv2.COLOR_YUV2BGR_I420)  # Decodificar como imagen BGR
-                #print("antes", cv_image.shape[0], cv_image.shape[1])
-                
-                if cv_image is None:
-                    print("Error: cv2.imdecode falló. Verifica el formato de la imagen.")
-                    continue
-                
-                # Procesar la imagen decodificada
-                out = self.processor.process_image(cv_image)  # Captura los valores de deviation y direction
-
-                # Volver a codificar el resultado si es necesario
-                _, encoded_output = cv2.imencode(".jpg", out)
-                serialEncodedImageData = base64.b64encode(encoded_output).decode("utf-8")
-                self.image_sender.send(serialEncodedImageData)  # Enviar imagen procesada
-
-                # Enviar los valores de deviation y direction
-                self.deviation.send(self.processor.get_parameters()["deviation"])
-                self.direction.send(self.processor.get_parameters()["direction"])
-                self.lines.send(self.processor.get_lines())
-
-            end_time = time.time()
-            print(f"Iteration time: {end_time - start_time} seconds")
-
+            decoded_image_data = base64.b64decode(FrameCamera)
             
+            nparr = np.frombuffer(decoded_image_data, np.uint8)
+            FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            FrameCameraPro=self.lane_processor.process_image(FrameCamera)
+            
+            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
+
+            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+            self.serialCameraSender.send(serialEncodedImageData)
+            ret = self.processor.get_parameters(self.act_deviation)
+            new_cant_lines = self.processor.get_lines()
+
+            if new_cant_lines != self.act_lines:
+                self.lines.send(new_cant_lines)
+                self.act_lines = new_cant_lines
+            if ret[0] != -1000:
+                self.direction.send(ret[1])  # Enviar dirección
+                self.deviation.send(ret[0])  # Enviar desviación
+                self.act_deviation = ret[0]
+            end_time = time.time()
+            print(f"Computo de imagen en: {end_time - start_time} seg")
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
         subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
-        self.subscribers["Images"] = subscriber
+        self.subscribers["serialCamera"] = subscriber
+        
+ 
