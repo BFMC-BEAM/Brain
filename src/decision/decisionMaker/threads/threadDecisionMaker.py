@@ -53,7 +53,6 @@ class threadDecisionMaker(ThreadWithStop):
         self.deviation = messageHandlerSender(self.queuesList, Deviation)
         self.direction = messageHandlerSender(self.queuesList, Direction)
         self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
-        self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
         self.lane_processor = LaneDetectionProcessor(type="simulator")
         self.processor = ObjectDetectionProcessor()
@@ -79,8 +78,10 @@ class threadDecisionMaker(ThreadWithStop):
             new_lines = self.subscribers["Lines"].receive() or self.currentLines
             curr_drivingMode = self.subscribers["DrivingMode"].receive() or self.prev_drivingMode
             FrameCamera = self.subscribers["serialCamera"].receive() 
+            ObjectDetection_Type = self.subscribers["CV_ObjectDetection_Type"].receive() 
             
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
+            decidedSpeed = self.distanceModule.handle_stop_signal_logic(ObjectDetection_Type, decidedSpeed)
 
             # If there's change in steer or speed, sends the message to the nucleo board
 
@@ -142,6 +143,10 @@ class threadDecisionMaker(ThreadWithStop):
 
         subscriber = messageHandlerSubscriber(self.queuesList, CVCameraProcessed, "lastOnly", True)
         self.subscribers["CVCameraProcessed"] = subscriber
+
+        subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectDetection_Type, "lastOnly", True)
+        self.subscribers["CV_ObjectDetection_Type"] = subscriber
+        
 
     # =============================== START ===============================================
     def start(self):

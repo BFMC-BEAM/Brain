@@ -46,7 +46,7 @@ class ObjectDetectionProcessor:
         if signal_detected != "stop sign":
             return (cv_image, True)
 
-        df = df[(df["confidence"] > 0.5) & (signal_detected == "stop sign")]
+        df = df[(df["confidence"] > 0.7) & (signal_detected == "stop sign")]
 
         valid_distance = True
 
