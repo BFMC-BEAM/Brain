@@ -22,7 +22,7 @@ class threadLaneDetection(ThreadWithStop):
         self.debugging = debugging
         self.subscribers = {}
         self.subscribe()
-        self.image_sender = messageHandlerSender(self.queuesList, serialCamera)
+        self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
         self.deviation = messageHandlerSender(self.queuesList, Deviation)
         self.direction = messageHandlerSender(self.queuesList, Direction)
         self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
@@ -45,12 +45,12 @@ class threadLaneDetection(ThreadWithStop):
             
             nparr = np.frombuffer(decoded_image_data, np.uint8)
             FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            FrameCameraPro=self.lane_processor.process_image(FrameCamera)
+            FrameCameraPro=self.processor.process_image(FrameCamera)
             
             _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
 
             serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
-            self.serialCameraSender.send(serialEncodedImageData)
+            self.image_sender.send(serialEncodedImageData)
             ret = self.processor.get_parameters(self.act_deviation)
             new_cant_lines = self.processor.get_lines()
 
