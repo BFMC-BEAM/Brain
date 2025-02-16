@@ -78,21 +78,18 @@ class threadDecisionMaker(ThreadWithStop):
             new_deviation = self.subscribers["Deviation"].receive() or self.currentDeviation 
             new_lines = self.subscribers["Lines"].receive() or self.currentLines
             curr_drivingMode = self.subscribers["DrivingMode"].receive() or self.prev_drivingMode
-            FrameCamera = self.subscribers["serialCamera"].receive()
+            FrameCamera = self.subscribers["serialCamera"].receive() 
 
             if FrameCamera is None:
                 continue
-
-            #FrameCamera = base64.b64encode(FrameCamera).encode("utf-8")
+            
             #print(FrameCamera)
             decoded_image_data = base64.b64decode(FrameCamera)
             
             # Paso 2: Convertir los bytes en una imagen
             nparr = np.frombuffer(decoded_image_data, np.uint8)
-            FrameCamera = cv2.imdecode(nparr, cv2.COLOR_YUV2BGR_I420)
-
+            FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             # Decides speed based on distance safe check
-            decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
             #self.state_machine.run(FrameCamera)
             FrameCameraPro=self.lane_processor.process_image(FrameCamera)
             
@@ -100,17 +97,20 @@ class threadDecisionMaker(ThreadWithStop):
 
             serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
             self.serialCameraSender.send(serialEncodedImageData)
+            
+            decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
+
             # If there's change in steer or speed, sends the message to the nucleo board
 
             # if self.currentSteer != decidedSteer:
             #     self.steerSender.send(decidedSteer)
-            
-            #if self.currentLines != new_lines:
-             #   if new_lines == 2:
-              #      self.speedSender.send("200")
-               # elif new_lines == 1:
-                #    self.speedSender.send("100")
-                #self.currentLines = new_lines
+           
+            if self.currentLines != new_lines:
+                if new_lines == 2:
+                    self.speedSender.send("200")
+                elif new_lines == 1:
+                    self.speedSender.send("100")
+                self.currentLines = new_lines
 
 
             if self.currentSpeed != decidedSpeed:
