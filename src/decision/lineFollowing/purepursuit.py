@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import numpy as np
 import math
+import time
 
 # Parameters
 WB = 0.26  # [m] wheel base of vehicle
@@ -19,6 +20,8 @@ class ControlSystem:
     def __init__(self, mode='path_tracking'):
         self.mode = mode
         self.previous_error = 0.0
+        self.prev_time = time.time()  # Inicializar el tiempo anterior
+        self.integral = 0.0  # Inicializar el término integral
 
 
     def adjust_direction(self, deviation, direction):
@@ -59,7 +62,46 @@ class ControlSystem:
 
         # self.sim_controller.set_steering_angle(steering_angle)
         return int(steering_angle)
-    
+
+    def adjust_direction_PID(self, deviation, direction):
+        """
+        Ajusta el ángulo de dirección basado en la desviación usando un controlador PID.
+        """
+        # PID controller parameters
+        KP = 2.0  # Proporcional
+        KI = 0.2  # Integral
+        KD = 0.1  # Derivativo
+        MAX_STEERING_ANGLE = 24  # Ángulo máximo de dirección
+
+        if deviation is None:
+            return
+
+        # Obtener el tiempo actual y calcular dt
+        current_time = time.time()
+        dt = current_time - self.prev_time
+        self.prev_time = current_time  # Actualizar el tiempo anterior
+
+        print(f"current_time: {current_time:.6f}")
+        print(f"previous_time: {self.prev_time:.6f}")
+        print(f"dt: {dt:.6f}")
+
+        # Evitar división por cero en la derivada
+        if dt == 0:
+            dt = 1e-6
+
+        # Calcular términos PID
+        error = deviation
+        self.integral += error * dt
+        derivative = (error - self.previous_error) / dt
+        steering_angle = KP * error + KI * self.integral + KD * derivative
+
+        # Limitar el ángulo de dirección
+        steering_angle = max(-MAX_STEERING_ANGLE, min(MAX_STEERING_ANGLE, steering_angle))
+
+        # Actualizar error previo
+        self.previous_error = error
+
+        return int(steering_angle)
 
     def pure_pursuit(self, deviation, direction):
 

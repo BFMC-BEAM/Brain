@@ -28,15 +28,24 @@ class threadObjectDetection(ThreadWithStop):
         super(threadObjectDetection, self).__init__()
         self.act_deviation = 0.
         self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
+        self.start_time = time.time()
+        self.limit_time = 3
+        self.init_count_time = True
 
 
     def run(self):
         while self._running:
+            
             FrameCamera = self.subscribers["serialCamera"].receive()
 
             if FrameCamera is None:
                 continue
-            start_time = time.time()
+
+            #limitacion para que solo se ejecute la deteccion de objetos cada un determinado tiempo
+            current_time = time.time()
+            if(current_time - self.start_time < self.limit_time):
+                continue
+            self.start_time = time.time()
 
 
             decoded_image_data = base64.b64decode(FrameCamera)
@@ -51,14 +60,14 @@ class threadObjectDetection(ThreadWithStop):
             self.image_sender.send(serialEncodedImageData)
             
             if not distance:
-                self.ObjectDetection_Type.send("stop_signal")
+                self.signal_type_detected.send("stop_signal")
                 #self.curr_sign = "stop_signal"
             else:
-                self.ObjectDetection_Type.send("no_signal")
+                self.signal_type_detected.send("no_signal")
                 #self.curr_sign = "no_signal"
 
             end_time = time.time()
-            print(f"Computo de imagen en: {end_time - start_time} seg")
+            print(f"Computo de imagen para deteccion de objetos en: {end_time - current_time} seg")
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""

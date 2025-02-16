@@ -98,6 +98,8 @@ class threadDecisionMaker(ThreadWithStop):
 
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
+
+            new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
             if self.currentDeviation != new_deviation:
                 new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
                 self.steerSender.send(str(new_steer * 10 )) # Revisar: new_steer llega al dashboard dividido por 10 ( new_steer=12 dashboard=1.2)
@@ -109,8 +111,6 @@ class threadDecisionMaker(ThreadWithStop):
 
             if curr_drivingMode is "auto":
                 print("Auto")
-
-            #time.sleep(0.2)  # Pausa la ejecución por 2 segundos
 
 
             
