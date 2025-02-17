@@ -13,10 +13,11 @@ class processObjectDetection(WorkerProcess):
         debugging (bool, optional): A flag for debugging. Defaults to False.
     """
 
-    def __init__(self, queueList, logging, debugging=False):
+    def __init__(self, queueList, logging, debugging=False, yolo_model=None):
         self.queuesList = queueList
         self.logging = logging
         self.debugging = debugging
+        self.yolo_model = yolo_model
         super(processObjectDetection, self).__init__(self.queuesList)
 
     def run(self):
@@ -26,6 +27,6 @@ class processObjectDetection(WorkerProcess):
     def _init_threads(self):
         """Create the ObjectDetection Publisher thread and add to the list of threads."""
         ObjectDetectionTh = threadObjectDetection(
-            self.queuesList, self.logging, self.debugging
+            self.queuesList, self.logging, self.debugging, self.yolo_model
         )
         self.threads.append(ObjectDetectionTh)

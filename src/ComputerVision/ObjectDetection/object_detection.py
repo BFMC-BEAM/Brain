@@ -5,11 +5,10 @@ from ultralytics import YOLO
 
 class ObjectDetectionProcessor:
 
-    def __init__(self):
-        model = YOLO("yolov5s.pt")
-        model.export(format="ncnn")  # Generate 'yolov5su_ncnn_model'
+    def __init__(self, model_cnn):
 
-        self.model = YOLO("yolov5su_ncnn_model")
+
+        self.model = model_cnn
         self.class_names = self.model.names
 
         self.real_width = 0.06      # Señal de stop: 6 cm de ancho real

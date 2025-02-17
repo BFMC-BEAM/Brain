@@ -50,7 +50,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # ===================================== PROCESS IMPORTS ==================================
-
+from ultralytics import YOLO
 from src.gateway.processGateway import processGateway
 from src.dashboard.processDashboard import processDashboard
 from src.hardware.camera.processCamera import processCamera
@@ -72,7 +72,9 @@ queueList = {
 }
 
 logging = logging.getLogger()
-
+model = YOLO("yolov5s.pt")
+model.export(format="ncnn")  # Generate 'yolov5su_ncnn_model'
+yolo_model = YOLO("yolov5su_ncnn_model")
 Dashboard = True
 Camera = True
 Semaphores = False
@@ -132,7 +134,7 @@ if LaneDetection:
     allProcesses.append(processLaneDetection)
 
 if ObjectDetection:
-    processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
+    processObjectDetection = processObjectDetection(queueList, logging, debugging = False, yolo_model=yolo_model)
     allProcesses.append(processObjectDetection)
 
 # ------ New component runs ends here ------#
