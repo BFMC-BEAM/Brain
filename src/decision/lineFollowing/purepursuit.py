@@ -68,8 +68,8 @@ class ControlSystem:
         Ajusta el ángulo de dirección basado en la desviación usando un controlador PID.
         """
         # PID controller parameters
-        KP = 2.0  # Proporcional
-        KI = 0.2  # Integral
+        KP = 1.0  # Proporcional
+        KI = 0.1  # Integral
         KD = 0.1  # Derivativo
         MAX_STEERING_ANGLE = 24  # Ángulo máximo de dirección
 

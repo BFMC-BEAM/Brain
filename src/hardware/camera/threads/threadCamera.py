@@ -32,20 +32,12 @@ import base64
 import picamera2
 import time
 from src.utils.messages.allMessages import (
-    CVCamera,
-    Deviation,
-    Direction,
-    Lines,
     mainCamera,
     serialCamera,
-    CVCameraProcessed,
     Recording,
     Record,
     Brightness,
     Contrast,
-    Deviation,
-    Direction,
-    Lines,
     DrivingMode
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender

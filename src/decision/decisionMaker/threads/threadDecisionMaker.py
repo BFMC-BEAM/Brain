@@ -15,10 +15,7 @@ from src.utils.messages.allMessages import (
     SetSteer, 
     SpeedMotor, 
     SteerMotor, 
-    Ultra, 
-    CVCamera, 
-    CVCameraProcessed,
-    serialCamera,
+    Ultra,
     CV_ObjectDetection_Type,
     Deviation, 
     Direction, 
@@ -53,7 +50,8 @@ class threadDecisionMaker(ThreadWithStop):
         self.deviation = messageHandlerSender(self.queuesList, Deviation)
         self.direction = messageHandlerSender(self.queuesList, Direction)
         self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
-        self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
+        
+        
         self.lane_processor = LaneDetectionProcessor(type="simulator")
         self.processor = ObjectDetectionProcessor()
         self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
@@ -77,7 +75,6 @@ class threadDecisionMaker(ThreadWithStop):
             new_deviation = self.subscribers["Deviation"].receive() or self.currentDeviation 
             new_lines = self.subscribers["Lines"].receive() or self.currentLines
             curr_drivingMode = self.subscribers["DrivingMode"].receive() or self.prev_drivingMode
-            FrameCamera = self.subscribers["serialCamera"].receive() 
             ObjectDetection_Type = self.subscribers["CV_ObjectDetection_Type"].receive() 
             
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
@@ -89,17 +86,16 @@ class threadDecisionMaker(ThreadWithStop):
             #     self.steerSender.send(decidedSteer)
            
             if self.currentLines != new_lines:
-                if new_lines == 2:
-                    self.speedSender.send("200")
-                elif new_lines == 1:
-                    self.speedSender.send("100")
+                #if new_lines == 2:
+                #    self.speedSender.send("200")
+                #elif new_lines == 1:
+                #    self.speedSender.send("100")
                 self.currentLines = new_lines
 
 
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)
 
-            new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
             if self.currentDeviation != new_deviation:
                 new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
                 self.steerSender.send(str(new_steer * 10 )) # Revisar: new_steer llega al dashboard dividido por 10 ( new_steer=12 dashboard=1.2)
@@ -137,12 +133,6 @@ class threadDecisionMaker(ThreadWithStop):
 
         subscriber = messageHandlerSubscriber(self.queuesList, DrivingMode, "lastOnly", True)
         self.subscribers["DrivingMode"] = subscriber
-
-        subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
-        self.subscribers["serialCamera"] = subscriber
-
-        subscriber = messageHandlerSubscriber(self.queuesList, CVCameraProcessed, "lastOnly", True)
-        self.subscribers["CVCameraProcessed"] = subscriber
 
         subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectDetection_Type, "lastOnly", True)
         self.subscribers["CV_ObjectDetection_Type"] = subscriber

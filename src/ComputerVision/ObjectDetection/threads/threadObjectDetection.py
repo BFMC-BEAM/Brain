@@ -2,14 +2,17 @@ import cv2
 import base64
 import numpy as np
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CVCamera, serialCamera, CV_ObjectDetection_Type)
+from src.utils.messages.allMessages import (
+    CVCamera,                   #queue que lee el dashboard
+    CV_ObjectDetection_Type,    #queue que envia el tipo de señal detectada
+    Intersection)               #queue que recibe la señal para procesar desde el laneDetection
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 import time
 
 class threadObjectDetection(ThreadWithStop):
-    """This thread handles LaneDetection.
+    """This thread handles ObjectDetection.
     Args:
         queueList (dictionary of multiprocessing.queues.Queue): Dictionary of queues where the ID is the type of messages.
         logging (logging object): Made for debugging.
@@ -26,18 +29,17 @@ class threadObjectDetection(ThreadWithStop):
         self.signal_type_detected = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
         self.processor = ObjectDetectionProcessor()
         super(threadObjectDetection, self).__init__()
-        self.act_deviation = 0.
         self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
         self.start_time = time.time()
         self.limit_time = 3
         self.init_count_time = True
+        
 
 
     def run(self):
         while self._running:
-            
-            FrameCamera = self.subscribers["serialCamera"].receive()
-
+            # lee la queue que solo envia informacion cuando el lineDetector detecta una interseccion
+            FrameCamera = self.subscribers["Intersection"].receive()
             if FrameCamera is None:
                 continue
 
@@ -47,31 +49,24 @@ class threadObjectDetection(ThreadWithStop):
                 continue
             self.start_time = time.time()
 
-
             decoded_image_data = base64.b64decode(FrameCamera)
-            
             nparr = np.frombuffer(decoded_image_data, np.uint8)
             FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            FrameCameraPro, distance = self.processor.process_image(FrameCamera)
-            
-            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
 
+            FrameCameraPro, distance = self.processor.process_image(FrameCamera)
+
+            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
             serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
             self.image_sender.send(serialEncodedImageData)
+            print("hay frame de objeto")
             
             if not distance:
                 self.signal_type_detected.send("stop_signal")
-                #self.curr_sign = "stop_signal"
             else:
                 self.signal_type_detected.send("no_signal")
-                #self.curr_sign = "no_signal"
-
-            end_time = time.time()
-            print(f"Computo de imagen para deteccion de objetos en: {end_time - current_time} seg")
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
-        subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
-        self.subscribers["serialCamera"] = subscriber
-        
+        subscriber = messageHandlerSubscriber(self.queuesList, Intersection, "lastOnly", True)
+        self.subscribers["Intersection"] = subscriber
  

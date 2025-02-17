@@ -55,7 +55,7 @@ class ObjectDetectionProcessor:
             bbox = df.iloc[i][["xmin", "ymin", "xmax", "ymax"]].values.astype(int)
             bbox_width = bbox[2] - bbox[0]
             distance_cm = self.calculate_distance(bbox_width)
-            if distance_cm < 30:
+            if distance_cm < 40:
                 bbox_color = (255, 0, 0)  # Azul
                 valid_distance = False
             else:

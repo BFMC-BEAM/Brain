@@ -76,6 +76,7 @@ class processDashboard(WorkerProcess):
         self.messagesAndVals.pop("mainCamera")  #Camara dashboard
         self.messagesAndVals.pop("Semaphores")
         self.messagesAndVals.pop("serialCamera")
+        self.messagesAndVals.pop("Intersection")
 
         self.subscribe()
 

@@ -26,6 +26,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         self.deviation = 0.0
         self.cant_lines = 0
         self.lane_history = []
+        self.in_possible_signal = False
 
     def _adjust_parameters(self, gray_image):
         """
@@ -165,15 +166,15 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             # TRIANGLE_TOP_CENTER = (331, 95)
 
             # # Define the rectangle area in the simulator (covers the bottom part of the image)
-            # RECTANGLE_BOTTOM_LEFT = (0, 401)
-            # RECTANGLE_TOP_RIGHT = (width, height)
+            #RECTANGLE_BOTTOM_LEFT = (250, 0)
+            #RECTANGLE_TOP_RIGHT = (400, 250)
 
             # # Add the rectangular area to the mask
             # cv2.rectangle(
             #     mask,
             #     RECTANGLE_BOTTOM_LEFT,
             #     RECTANGLE_TOP_RIGHT,
-            #     255,  # White color for the mask
+            #     0,  # White color for the mask
             #     thickness=cv2.FILLED,  # Fill the rectangle
             # )
             # Simulator-specific coordinates for the triangular ROI
@@ -558,6 +559,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         # Constants
         avg_fit = None
         # Calculate the average of the fit lines
+        
         avg_fit = np.mean(fit_lines, axis=0)
 
         return self._make_coordinates(image, avg_fit)
@@ -735,8 +737,9 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         TEXT_COLOR = (0, 255, 0)  # Green color for the text (BGR format)
         # Constants for intersection detection
         MIN_LINES_FOR_INTERSECTION = (
-            30  # Minimum number of lines to detect an intersection
+            40  # Minimum number of lines to detect an intersection
         )
+        print(len(lines))
         # Initial text indicating whether a crosswalk is detected
         text = "Intersection: "
         # Determine if an intersection is detected
@@ -746,8 +749,10 @@ class LaneDetectionProcessor(ImageProcessorInterface):
             and self._check_line_angle(lines, 0, 15)
         ):
             text += "yes"  # Intersection detected
+            self.in_possible_signal = True
         else:
             text += "no"  # No intersection detected
+            self.in_possible_signal = False
 
         # Annotate the intersection detection result on the output image
         cv2.putText(
@@ -834,8 +839,8 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         # PIXELS_PER_M = 220  # Approximation of pixels per meter in the image
         # OFFSET_PIXELS = int(LANE_WIDTH_M * PIXELS_PER_M / 3)  # Half lane width in pixels
         LANE_WIDTH_M = 3.5  # Estimated lane width in meters
-        PIXELS_PER_M = 200  # Approximation of pixels per meter in the image
-        OFFSET_PIXELS = int(LANE_WIDTH_M * PIXELS_PER_M / 5)  # Half lane width in pixels
+        PIXELS_PER_M = 200  # Approximation of pixels per meter in the image 666
+        OFFSET_PIXELS = int(LANE_WIDTH_M * PIXELS_PER_M / 3)  # Half lane width in pixels 
         CIRCLE_RADIUS = 5  # Radius of the circle to mark the center point
         CIRCLE_COLOR = (255, 0, 255)  # Color of the circle (magenta in BGR format)
         TEXT_COLOR = (255, 255, 255)  # Color of the text (white in BGR format)
@@ -873,10 +878,17 @@ class LaneDetectionProcessor(ImageProcessorInterface):
                 x3 = x1  # Si la recta es vertical, todos los puntos tienen la misma x
             else:
                 m = (y2 - y1) / (x2 - x1)
-                y3 = -53
-                x3 = x1 + (y3 - y1) / m
+                angle = math.degrees(math.atan(m))  # Convierte el ángulo de radianes a grados
+                #suponiendo que el angulo esta a 90 para la mitad de la imagen
+                if(angle < 85 or angle > 90):
+                    center_x = ((x1 + x2) // 2) + OFFSET_PIXELS
+                elif(angle < 90 or angle > 95):
+                    center_x = ((x1 + x2) // 2) + OFFSET_PIXELS
+                else:
+                    y3 = -43
+                    x3 = x1 + (y3 - y1) / m
+                    center_x = int(x3)
 
-            center_x = int(x3) #((x1 + x2) // 2) - OFFSET_PIXELS
             center_y = (y1 + y2) // 2
 
         # Case 3: Only the right line is detected (left curve scenario)
@@ -889,11 +901,33 @@ class LaneDetectionProcessor(ImageProcessorInterface):
                 x3 = x1  # Si la recta es vertical, todos los puntos tienen la misma x
             else:
                 m = (y2 - y1) / (x2 - x1)
-                y3 = -53
-                x3 = x1 + (y3 - y1) / m
+                angle = math.degrees(math.atan(m))  # Convierte el ángulo de radianes a grados
+                
+                #suponiendo que el angulo esta a 90 para la mitad de la imagen
+                if(angle > 85 and angle < 90):
+                    center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
+                elif(angle > 90 and angle < 95):
+                    center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
+                else:
+                    y3 = -43
+                    x3 = x1 + (y3 - y1) / m
+                    center_x = int(x3)
 
-            center_x = int(x3) #((x1 + x2) // 2) - OFFSET_PIXELS
             center_y = (y1 + y2) // 2
+        
+        # Case 2: Only the left line is detected (right curve scenario)
+        #elif len(left_line) != 1 and len(right_line) == 1:
+         #   self.cant_lines = 1
+          #  x1, y1, x2, y2 = left_line
+           # center_x = ((x1 + x2) // 2) + OFFSET_PIXELS
+            #center_y = (y1 + y2) // 2
+
+        # Case 3: Only the right line is detected (left curve scenario)
+        #elif len(left_line) == 1 and len(right_line) != 1:
+         #   self.cant_lines = 1
+          #  x1, y1, x2, y2 = right_line
+           # center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
+            #center_y = (y1 + y2) // 2
         #
         else:
             self.cant_lines = 0 
@@ -1098,3 +1132,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         if self.cant_lines is None:
             return 0
         return self.cant_lines
+    
+    def get_in_possible_signal(self):
+        return self.in_possible_signal

@@ -280,7 +280,11 @@ class Lines(Enum):
     msgID = 5
     msgType = "int"
     
-    
+class Intersection(Enum):
+    Queue = "General"
+    Owner = "ComputerVision" 
+    msgID = 6
+    msgType = "str"
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
 
 class CV_ObjectDetection_Type(Enum):
