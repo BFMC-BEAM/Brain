@@ -30,13 +30,12 @@ class threadLaneDetection(ThreadWithStop):
         self.processor = LaneDetectionProcessor(type="simulator")
         super(threadLaneDetection, self).__init__()
         self.act_deviation = 0.
-        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
+        self.act_lines = -1     # detected lines counter, 0 none, 1 if detected left or right, 2 normal
 
 
     def run(self):
         while self._running:
             FrameCamera = self.subscribers["serialCamera"].receive()
-            FrameCameraClean = FrameCamera
             if FrameCamera is None:
                 continue
             start_time = time.time()
@@ -58,16 +57,11 @@ class threadLaneDetection(ThreadWithStop):
                 self.lines.send(new_cant_lines)
                 self.act_lines = new_cant_lines
             if ret[0] != -1000:
-                self.direction.send(ret[1])  # Enviar dirección
-                self.deviation.send(ret[0])  # Enviar desviación
+                self.direction.send(ret[1])
+                self.deviation.send(ret[0])
                 self.act_deviation = ret[0]
             if is_possible_signal is True:
-                #print("Hay interseccion")
-                self.intersection.send(serialEncodedImageData) # FrameCameraClean
-            #if is_possible_signal is False:
-                #print("Fuera de interseccion")
-            #end_time = time.time()
-            #print(f"Computo de imagen en: {end_time - start_time} seg")
+                self.intersection.send(serialEncodedImageData)
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""

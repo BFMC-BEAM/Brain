@@ -4,8 +4,6 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.decision.decisionMaker.stateMachine import StateMachine
 from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
-import cv2
-import base64
 import numpy as np
 
 from src.utils.messages.allMessages import (
@@ -24,7 +22,6 @@ from src.utils.messages.allMessages import (
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 
-import time
 
 class threadDecisionMaker(ThreadWithStop):
     """This thread handles decisionMaker.
@@ -54,7 +51,6 @@ class threadDecisionMaker(ThreadWithStop):
         
         self.lane_processor = LaneDetectionProcessor(type="simulator")
         self.processor = ObjectDetectionProcessor()
-        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
         #self.state_machine = StateMachine(self.lane_processor, self.processor, self.direction, self.deviation, self.ObjectDetection_Type, self.lines )
         self.prev_drivingMode = "stop"
         self.subscribe()
@@ -80,16 +76,8 @@ class threadDecisionMaker(ThreadWithStop):
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
             decidedSpeed = self.distanceModule.handle_stop_signal_logic(ObjectDetection_Type, decidedSpeed)
 
-            # If there's change in steer or speed, sends the message to the nucleo board
-
-            # if self.currentSteer != decidedSteer:
-            #     self.steerSender.send(decidedSteer)
            
             if self.currentLines != new_lines:
-                #if new_lines == 2:
-                #    self.speedSender.send("200")
-                #elif new_lines == 1:
-                #    self.speedSender.send("100")
                 self.currentLines = new_lines
 
 
@@ -98,7 +86,7 @@ class threadDecisionMaker(ThreadWithStop):
 
             if self.currentDeviation != new_deviation:
                 new_steer = self.controlSystem.adjust_direction(new_deviation, direction)
-                self.steerSender.send(str(new_steer * 10 )) # Revisar: new_steer llega al dashboard dividido por 10 ( new_steer=12 dashboard=1.2)
+                self.steerSender.send(str(new_steer * 10 ))
                 self.currentDeviation = new_deviation
 
             if curr_drivingMode != self.prev_drivingMode :

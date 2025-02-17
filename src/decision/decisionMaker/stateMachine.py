@@ -48,7 +48,7 @@ class StateMachine():
           self.frame = None
           self.act_deviation = 0
           self.curr_sign = "no_signal"
-          self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
+          self.act_lines = -1   # detected lines counter, 0 none, 1 if detected left or right, 2 normal
           self.act_direction = "straight"
           self.curr_state = State(BRAINLESS, self.brainless)
           self.fps = FPS
@@ -66,8 +66,8 @@ class StateMachine():
         ret = self.lane_processor.get_parameters(self.act_deviation)
         new_cant_lines = self.lane_processor.get_lines()
         if ret[0] != -1000:
-            self.direction.send(ret[1])  # Enviar dirección
-            self.deviation.send(ret[0])  # Enviar desviación
+            self.direction.send(ret[1])
+            self.deviation.send(ret[0])
             self.act_deviation = ret[0]
             print(f'direction: {ret[1]}')
         if new_cant_lines != self.act_lines:

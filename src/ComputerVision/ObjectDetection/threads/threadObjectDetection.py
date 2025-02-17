@@ -3,9 +3,9 @@ import base64
 import numpy as np
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (
-    CVCamera,                   #queue que lee el dashboard
-    CV_ObjectDetection_Type,    #queue que envia el tipo de señal detectada
-    Intersection)               #queue que recibe la señal para procesar desde el laneDetection
+    CVCamera,
+    CV_ObjectDetection_Type,
+    Intersection)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
@@ -29,7 +29,6 @@ class threadObjectDetection(ThreadWithStop):
         self.signal_type_detected = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
         self.processor = ObjectDetectionProcessor()
         super(threadObjectDetection, self).__init__()
-        self.act_lines = -1 # contador de lineas detectadas, 0 nada, 1 si detecto izq o der, 2 normal
         self.start_time = time.time()
         self.limit_time = 3
         self.init_count_time = True
@@ -38,12 +37,12 @@ class threadObjectDetection(ThreadWithStop):
 
     def run(self):
         while self._running:
-            # lee la queue que solo envia informacion cuando el lineDetector detecta una interseccion
+            # reads the queue that only sends information when the lineDetector detects an intersection
             FrameCamera = self.subscribers["Intersection"].receive()
             if FrameCamera is None:
                 continue
 
-            #limitacion para que solo se ejecute la deteccion de objetos cada un determinado tiempo
+            # limit object detection to run at specific intervals
             current_time = time.time()
             if(current_time - self.start_time < self.limit_time):
                 continue

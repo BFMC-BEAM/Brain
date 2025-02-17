@@ -896,14 +896,13 @@ class LaneDetectionProcessor(ImageProcessorInterface):
 
             self.cant_lines = 1
             x1, y1, x2, y2 = right_line
-            # Calcular la pendiente de la recta
-            if x2 - x1 == 0:  # Evita la división por cero si la recta es vertical
-                x3 = x1  # Si la recta es vertical, todos los puntos tienen la misma x
+            
+            if x2 - x1 == 0:
+                x3 = x1
             else:
                 m = (y2 - y1) / (x2 - x1)
-                angle = math.degrees(math.atan(m))  # Convierte el ángulo de radianes a grados
+                angle = math.degrees(math.atan(m))
                 
-                #suponiendo que el angulo esta a 90 para la mitad de la imagen
                 if(angle > 85 and angle < 90):
                     center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
                 elif(angle > 90 and angle < 95):
@@ -914,21 +913,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
                     center_x = int(x3)
 
             center_y = (y1 + y2) // 2
-        
-        # Case 2: Only the left line is detected (right curve scenario)
-        #elif len(left_line) != 1 and len(right_line) == 1:
-         #   self.cant_lines = 1
-          #  x1, y1, x2, y2 = left_line
-           # center_x = ((x1 + x2) // 2) + OFFSET_PIXELS
-            #center_y = (y1 + y2) // 2
-
-        # Case 3: Only the right line is detected (left curve scenario)
-        #elif len(left_line) == 1 and len(right_line) != 1:
-         #   self.cant_lines = 1
-          #  x1, y1, x2, y2 = right_line
-           # center_x = ((x1 + x2) // 2) - OFFSET_PIXELS
-            #center_y = (y1 + y2) // 2
-        #
         else:
             self.cant_lines = 0 
 
