@@ -1,3 +1,4 @@
+import time
 from src.decision.distance.distance_module import DistanceModule
 from src.decision.line_following.purepursuit import ControlSystem
 from src.utils.constants import BRAINLESS, CONTROL_FOR_SIGNS
@@ -138,7 +139,9 @@ class StateMachine():
             for sign_name, valid_distance in objects_detected:
                 if sign_name == "STOP" and valid_distance:
                     self.change_state("STOP_SIGN_DETECTED")
-
+        elif self.current_state == 'stop_car':
+            if self.timeout_stop and (time.time() - self.timeout_stop) > 3:
+                self.change_state("TIMEOUT_STOP") 
         elif self.current_state == 'classifying_obstacle':
             for object_name, valid_distance in objects_detected:
                 if object_name == "PEDESTRIAN" and valid_distance:
@@ -158,6 +161,7 @@ class StateMachine():
         self.current_steer = str(self.controlSystem.adjust_direction(self.act_deviation, self.direction) * 10)
     def on_stop_sign_detected(self):
         # TODO: revisar valor de stop que recibe el modulo
+        self.timeout_stop = time.time()
         self.current_speed = self.distanceModule.handle_stop_signal_logic(self.objects_detected["STOP"], self.current_speed)
     def on_timeout_stop(self):
         pass
