@@ -42,6 +42,7 @@
 # ===================================== GENERAL IMPORTS ==================================
 import sys
 import subprocess
+import os
 
 sys.path.append(".")
 from multiprocessing import Queue, Event
@@ -72,9 +73,13 @@ queueList = {
 }
 
 logging = logging.getLogger()
-model = YOLO("yolov5s.pt")
-model.export(format="ncnn")  # Generate 'yolov5su_ncnn_model'
-yolo_model = YOLO("yolov5su_ncnn_model")
+
+model_path = "yolov5su_ncnn_model"
+if not os.path.exists(model_path):
+    model = YOLO("yolov5s.pt")
+    model.export(format="ncnn")  
+yolo_model = YOLO(model_path)
+
 Dashboard = True
 Camera = True
 Semaphores = False

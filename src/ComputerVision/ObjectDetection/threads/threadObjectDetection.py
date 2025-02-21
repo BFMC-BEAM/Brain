@@ -4,7 +4,7 @@ import numpy as np
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (
     CVCamera,
-    CV_ObjectDetection_Type,
+    CV_ObjectsDetected,
     Intersection)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
@@ -26,7 +26,7 @@ class threadObjectDetection(ThreadWithStop):
         self.subscribers = {}
         self.subscribe()
         self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
-        self.signal_type_detected = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
+        self.signals_detected = messageHandlerSender(self.queuesList, CV_ObjectsDetected)
         self.processor = ObjectDetectionProcessor()
         super(threadObjectDetection, self).__init__()
         self.start_time = time.time()
@@ -52,17 +52,14 @@ class threadObjectDetection(ThreadWithStop):
             nparr = np.frombuffer(decoded_image_data, np.uint8)
             FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-            FrameCameraPro, distance = self.processor.process_image(FrameCamera)
+            FrameCameraPro, signals = self.processor.process_image(FrameCamera)
 
             _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
             serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
             self.image_sender.send(serialEncodedImageData)
-            print("hay frame de objeto")
-            
-            if not distance:
-                self.signal_type_detected.send("stop_signal")
-            else:
-                self.signal_type_detected.send("no_signal")
+            #TODO: checkear el envio de listas
+            self.signals_detected.send(signals)
+        
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""

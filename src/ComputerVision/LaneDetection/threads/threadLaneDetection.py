@@ -61,7 +61,7 @@ class threadLaneDetection(ThreadWithStop):
                 self.deviation.send(ret[0])
                 self.act_deviation = ret[0]
             if is_possible_signal is True:
-                self.intersection.send(serialEncodedImageData)
+                self.intersection.send(1)
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
