@@ -74,11 +74,10 @@ queueList = {
 
 logging = logging.getLogger()
 
-model_path = "yolov5su_ncnn_model"
-if not os.path.exists(model_path):
+yolo_path = "yolov5su_ncnn_model"
+if not os.path.exists(yolo_path):
     model = YOLO("yolov5s.pt")
     model.export(format="ncnn")  
-yolo_model = YOLO(model_path)
 
 Dashboard = True
 Camera = True
@@ -89,7 +88,7 @@ SerialHandler = True
 # ------ New component flags starts here ------#
 DecisionMaker = True
 LaneDetection = True
-ObjectDetection = True
+ObjectDetection = False
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================
@@ -139,7 +138,7 @@ if LaneDetection:
     allProcesses.append(processLaneDetection)
 
 if ObjectDetection:
-    processObjectDetection = processObjectDetection(queueList, logging, debugging = False, yolo_model=yolo_model)
+    processObjectDetection = processObjectDetection(queueList, logging, debugging = False, yolo_path=yolo_path)
     allProcesses.append(processObjectDetection)
 
 # ------ New component runs ends here ------#

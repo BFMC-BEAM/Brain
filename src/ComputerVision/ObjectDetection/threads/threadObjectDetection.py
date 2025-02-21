@@ -19,7 +19,7 @@ class threadObjectDetection(ThreadWithStop):
         debugging (bool, optional): A flag for debugging. Defaults to False.
     """
 
-    def __init__(self, queueList, logging, debugging=False):
+    def __init__(self, queueList, logging, debugging=False, yolo_model=None):
         self.queuesList = queueList
         self.logging = logging
         self.debugging = debugging
@@ -27,11 +27,12 @@ class threadObjectDetection(ThreadWithStop):
         self.subscribe()
         self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
         self.signals_detected = messageHandlerSender(self.queuesList, CV_ObjectsDetected)
-        self.processor = ObjectDetectionProcessor()
+        self.processor = ObjectDetectionProcessor(yolo_model)
         super(threadObjectDetection, self).__init__()
         self.start_time = time.time()
         self.limit_time = 3
         self.init_count_time = True
+
         
 
 

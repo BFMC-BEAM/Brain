@@ -739,7 +739,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         MIN_LINES_FOR_INTERSECTION = (
             40  # Minimum number of lines to detect an intersection
         )
-        print(len(lines))
         # Initial text indicating whether a crosswalk is detected
         text = "Intersection: "
         # Determine if an intersection is detected

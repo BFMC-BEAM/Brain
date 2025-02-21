@@ -1,8 +1,8 @@
 import time
-from src.decision.distance.distance_module import DistanceModule
-from src.decision.line_following.purepursuit import ControlSystem
+from src.decision.distance.distanceModule import DistanceModule
+from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.utils.constants import BRAINLESS, CONTROL_FOR_SIGNS
-from src.utils.messages import message_handler_sender
+from src.utils.messages import messageHandlerSender
 
 ALWAYS_ON_ROUTINES = [CONTROL_FOR_SIGNS]
 LANE_FRAME_SKIP = 1
@@ -25,9 +25,9 @@ class StateMachine():
         self.distance_module = DistanceModule()
         self.control_system = ControlSystem()
         # INITIALIZE ROUTINES
-        self.routines = {        
-            CONTROL_FOR_SIGNS: Routine(CONTROL_FOR_SIGNS,  self.control_for_signs),         
-        }
+        # self.routines = {        
+        #    CONTROL_FOR_SIGNS: Routine(CONTROL_FOR_SIGNS,  self.control_for_signs),         
+        # }
         # mat state
         self.state_transitions = {
             'start_state': {'ROADMAP_LOADED': 'lane_following'},
@@ -41,7 +41,8 @@ class StateMachine():
             },
             'classifying_sign': {'STOP_SIGN_DETECTED': 'stop_car'},
             'stop_car': {'TIMEOUT_STOP': 'lane_following'},
-            'parking_state': {'COMPLETED': 'lane_following'},
+            'parking_state': {'PARKING_COMPLETED': 'lane_following',
+                              'TRY_PARKING': 'parking_state'},
             'waiting_for_pedestrian': {'PEDESTRIAN_TIMEOUT': 'lane_following'},
             'overtaking_moving_car': {'CAR_OVERTAKEN': 'lane_following'},
             'overtaking_static_car': {'CAR_OVERTAKEN': 'lane_following'},
@@ -77,11 +78,12 @@ class StateMachine():
             'OBSTACLE_DISTANCE_THRESHOLD': self.on_obstacle_detected,
             'END_EVENT': self.on_end,
             'STOP_LINE_APPROACH_DISTANCE_THRESHOLD': self.on_stop_line_approach,
-            'PARKING_EVENT': self.on_parking,
-            'NOTHING_LANE_FOLLOWING': self.on_lane_following,
-            'STOP_SIGN_DETECTED': self.on_stop_sign,
+            'PARKING_EVENT': self.on_parking, 
+            'TRY_PARKING' : self.try_parking,
+            'CONTINUE_LANE_FOLLOWING': self.on_lane_following,
+            'STOP_SIGN_DETECTED': self.on_stop_sign_detected,
             'TIMEOUT_STOP': self.on_timeout_stop,
-            'COMPLETED': self.on_parking_completed,
+            'PARKING_COMPLETED': self.on_parking_completed,
             'PEDESTRIAN_TIMEOUT': self.on_pedestrian_timeout,
             'CAR_OVERTAKEN': self.on_car_overtaken,
             'ROADBLOCK_AVOIDED': self.on_roadblock_avoided,
@@ -104,11 +106,18 @@ class StateMachine():
             'SEMAPHORE_GREEN': self.on_semaphore_green,
         }
         
+        # PARKING
+        self.parking_start_time = time.time()  
+        self.parking_step = 0  
+        self.parking_duration = [2, 1, 1, 1, 1]  
+        self.parking_end_time = None  
         
-        self.current_state = 'lane_following' #start_state
-        self.current_speed = "0"
-        self.current_steer = "0"
-
+        self.current_state = 'parking_state' #start_state
+        self.current_speed = None
+        self.current_steer = None
+        self.current_direction = None
+        self.current_deviation = None
+        self.objects_detected = None
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
         """Cambia el estado basándose en el evento."""
@@ -122,19 +131,20 @@ class StateMachine():
     #===================== EVENT HANDLING =====================#
         
 
-
-    def handle_events(self, act_deviation, num_lines_detected, objects_detected, current_speed, current_steer, intersection):
-        self.act_deviation = act_deviation
-        self.num_lines_detected = num_lines_detected
-        self.objects_detected = objects_detected
-        self.current_speed = current_speed
-        self.current_steer = current_steer
+    def handle_events(self, act_deviation, num_lines_detected, objects_detected, current_speed, current_steer, direction, ultra_values):
+        self.current_deviation = act_deviation if act_deviation is not None else self.current_deviation
+        self.num_lines_detected = num_lines_detected if num_lines_detected is not None else self.num_lines_detected
+        self.objects_detected = objects_detected if objects_detected is not None else self.objects_detected
+        self.current_speed = current_speed if current_speed is not None else self.current_speed
+        self.current_steer = current_steer if current_steer is not None else self.current_steer
+        self.current_direction = direction if direction is not None else self.current_direction
+        self.current_ultra_values = ultra_values if ultra_values is not None else self.current_ultra_values
         if self.current_state == 'lane_following':
             
-            if intersection == 1:
-                self.change_state('STOP_SIGN_DETECTED')
-            else:
-                self.change_state("CONTINUE_LANE_FOLLOWING")
+            #if intersection == 1:
+            #    self.change_state('STOP_SIGN_DETECTED')
+            #else:
+            self.change_state("CONTINUE_LANE_FOLLOWING")
         elif self.current_state == 'classifying_sign':
             for sign_name, valid_distance in objects_detected:
                 if sign_name == "STOP" and valid_distance:
@@ -142,6 +152,11 @@ class StateMachine():
         elif self.current_state == 'stop_car':
             if self.timeout_stop and (time.time() - self.timeout_stop) > 3:
                 self.change_state("TIMEOUT_STOP") 
+        elif self.current_state == 'parking_state':
+            if self.parking_end_time == -1:
+                self.change_state("PARKING_COMPLETED")
+            else:
+                self.change_state("TRY_PARKING")
         elif self.current_state == 'classifying_obstacle':
             for object_name, valid_distance in objects_detected:
                 if object_name == "PEDESTRIAN" and valid_distance:
@@ -156,16 +171,61 @@ class StateMachine():
     def on_obstacle_detected(self): pass
     def on_end(self): pass
     def on_stop_line_approach(self): pass
-    def on_parking(self): pass
+    def on_parking(self):
+        self.parking_start_time = time.time()  
+    def try_parking(self): 
+        current_time = time.time()  
+        elapsed_time = current_time - self.parking_start_time 
+
+
+        if self.parking_step == 0:  
+            self.current_speed = 100
+            self.current_steer = 0
+            if elapsed_time >= self.parking_duration[0]:
+                self.parking_step += 1
+                self.parking_start_time = current_time  
+        elif self.parking_step == 1:  
+            self.current_speed = 0
+            self.current_steer = 240
+            if elapsed_time >= self.parking_duration[1]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 2:  
+            self.current_speed = -100
+            self.current_steer = 240
+            if elapsed_time >= self.parking_duration[2]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 3: 
+            self.current_speed = 100
+            self.current_steer = 120
+            if elapsed_time >= self.parking_duration[3]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 4:
+            self.current_speed = 0
+            self.current_steer = 0
+            if elapsed_time >= self.parking_duration[4]:
+                self.parking_step = 0  
+                self.parking_start_time = None 
+                self.parking_end_time = current_time  
+                self.on_parking_completed()  
+    def on_parking_completed(self): 
+        print("Secuencia de estacionamiento completada.")
+        self.parking_end_time = -1
+        #end time setear en None y en handle events consultar esta variable
+
     def on_lane_following(self): 
-        self.current_steer = str(self.controlSystem.adjust_direction(self.act_deviation, self.direction) * 10)
+        self.current_steer = self.control_system.adjust_direction(self.current_deviation, self.current_direction)
+        self.current_speed = "50"
+        
     def on_stop_sign_detected(self):
         # TODO: revisar valor de stop que recibe el modulo
         self.timeout_stop = time.time()
-        self.current_speed = self.distanceModule.handle_stop_signal_logic(self.objects_detected["STOP"], self.current_speed)
+        self.current_speed = self.distance_module.handle_stop_signal_logic(self.objects_detected["STOP"], self.current_speed)
     def on_timeout_stop(self):
         pass
-    def on_parking_completed(self): pass
+
     def on_pedestrian_timeout(self): pass
     def on_car_overtaken(self): pass
     def on_roadblock_avoided(self): pass

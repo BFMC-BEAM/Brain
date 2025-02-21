@@ -3,8 +3,8 @@ import numpy as np
 from ultralytics import YOLO
 
 class ObjectDetectionProcessor:
-    def __init__(self):
-        self.model_path = "best.pt"
+    def __init__(self,  yolo_path):
+        self.model_path = yolo_path
         self.model = YOLO(self.model_path)  
         self.class_names = self.model.names
         self.real_width = 0.06      # Real width of the stop sign (in meters, 6 cm in this case)

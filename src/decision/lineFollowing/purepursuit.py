@@ -61,7 +61,7 @@ class ControlSystem:
         self.previous_error = error
 
         # self.sim_controller.set_steering_angle(steering_angle)
-        return int(steering_angle)
+        return str(int(steering_angle * 10))
 
     def adjust_direction_PID(self, deviation, direction):
         """
@@ -101,7 +101,7 @@ class ControlSystem:
         # Actualizar error previo
         self.previous_error = error
 
-        return int(steering_angle)
+        return str(steering_angle)
 
     def pure_pursuit(self, deviation, direction):
 

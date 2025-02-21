@@ -12,7 +12,7 @@ from src.utils.messages.allMessages import (
     SpeedMotor, 
     SteerMotor, 
     Ultra,
-    CV_ObjectDetection_Type,
+    CV_ObjectsDetected,
     Deviation, 
     Direction, 
     Lines, 
@@ -39,33 +39,43 @@ class threadDecisionMaker(ThreadWithStop):
         self.deviation = messageHandlerSender(self.queuesList, Deviation)
         self.direction = messageHandlerSender(self.queuesList, Direction)
         self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
-
+        self.curr_drivingMode = "stop"
         self.state_machine = StateMachine()
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
 
+        self.current_speed = "0"
+        self.current_steer = "0"
+        self.current_direction = None
+        self.current_deviation = 0.
+        self.objects_detected = None
+        self.intersection = -1
 
     def run(self):
+        print("arranca")
 
         while self._running:
+            curr_drivingMode = self.subscribers["DrivingMode"].receive() or self.curr_drivingMode
+            self.curr_drivingMode = curr_drivingMode
+
             if curr_drivingMode == "auto":
-                act_deviation = self.subscribers["Deviation"].receive()
-                num_lines_detected = self.subscribers["Lines"].receive()
-                curr_drivingMode = self.subscribers["DrivingMode"].receive() 
-                objects_detected = self.subscribers["CV_ObjectsDetected"].receive() 
-                current_speed  = self.subscribers["CurrentSpeed"].receive() 
-                current_steer  = self.subscribers["CurrentSteer"].receive()
-                direction = self.subscribers["Direction"].receive()
+                self.current_deviation = self.subscribers["Deviation"].receive() or self.current_deviation
+                self.num_lines_detected = self.subscribers["Lines"].receive() or self.num_lines_detected
+                self.objects_detected = self.subscribers["CV_ObjectsDetected"].receive() or self.objects_detected
+                self.current_speed  = self.subscribers["CurrentSpeed"].receive() or self.current_speed
+                self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
+                self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
-                intersection = self.subscribers["Intersection"].receive()      
                 target_speed, target_steer = self.state_machine.handle_events(
-                    act_deviation, num_lines_detected, objects_detected, current_speed, current_steer, direction, ultra_values, intersection
+                    self.current_deviation, self.num_lines_detected, self.objects_detected, self.current_speed, self.current_steer, self.direction, ultra_values
                 )
-                
-                if target_speed is not None:
+                #print("recibo:", target_speed, target_steer)
+
+                if target_speed != self.current_speed:
                     self.speedSender.send(str(target_speed))
-                if target_steer is not None:
-                    self.steerSender.send(str(target_steer))
+                if target_steer != self.current_steer:
+                    print("cambindo direccion")
+                    self.steerSender.send(target_steer)
 
             elif curr_drivingMode == "manual":
                 target_speed =  self.subscribers["SpeedMotor"].receive() 
@@ -105,8 +115,8 @@ class threadDecisionMaker(ThreadWithStop):
         subscriber = messageHandlerSubscriber(self.queuesList, DrivingMode, "lastOnly", True)
         self.subscribers["DrivingMode"] = subscriber
 
-        subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectDetection_Type, "lastOnly", True)
-        self.subscribers["CV_ObjectDetection_Type"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectsDetected, "lastOnly", True)
+        self.subscribers["CV_ObjectsDetected"] = subscriber
         
 
     # =============================== START ===============================================

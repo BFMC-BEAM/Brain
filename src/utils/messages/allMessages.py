@@ -284,13 +284,13 @@ class Intersection(Enum):
     Queue = "General"
     Owner = "ComputerVision" 
     msgID = 6
-    msgType = "int"
+    msgType = "str"
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
 ######################    From ObjectDetection  ###########################
 
 class CV_ObjectsDetected(Enum):
     Queue = "General"
-    Owner = "CV_ObjectsDetected"
+    Owner = "ObjectDetection"
     msgID = 1
     msgType = "list"
 
