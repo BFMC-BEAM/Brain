@@ -4,12 +4,14 @@ import networkx as nx # grafo
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.utils.constants import (
-    start_state, end_state, lane_following, classifying_sign, stop_car, parking_state,
+    #States
+    start_state, end_state, lane_following, classifying_sign, stop_state, parking_state,
     waiting_for_pedestrian, overtaking_moving_car, overtaking_static_car, avoiding_roadblock,
     classifying_obstacle, tailing_car, approaching_stop_line, crosswalk_navigation,
     roundabout_navigation, tracking_local_path, intersection_navigation, waiting_at_stopline,
-    waiting_for_green, highway_state,
+    waiting_for_green, highway_state, crosswalk_state,
 
+    #Events
     ROADMAP_LOADED, OBSTACLE_DISTANCE_THRESHOLD, SIGN_DISTANCE_THRESHOLD, END_EVENT,
     STOP_LINE_APPROACH_DISTANCE_THRESHOLD, PARKING_SIGN_DETECTED, TRY_PARKING, CONTINUE_LANE_FOLLOWING,
     STOP_SIGN_DETECTED, TIMEOUT_STOP, PARKING_COMPLETED, PEDESTRIAN_TIMEOUT, CAR_OVERTAKEN,
@@ -17,7 +19,17 @@ from src.utils.constants import (
     IF_MOVING, IF_STATIC, CROSSWALK_SIGN_DETECTED, TIMEOUT_CROSSWALK, INTERSECTION_TRAFFIC_LIGHT_EVENT,
     INTERSECTION_STOP_EVENT, JUNCTION_EVENT, INTERSECTION_PRIORITY_EVENT, ROUNDABOUT_EVENT,
     ALWAYS, END_OF_LOCAL_PATH, TIMEOUT_STOPLINE, SEMAPHORE_GREEN, WAITING_STOP,HIGHWAY_ENTRY_SIGN_DETECTED,
-    HIGHWAY_END_SIGN_DETECTED, IN_HIGHWAY,
+    HIGHWAY_END_SIGN_DETECTED, IN_HIGHWAY, ONE_WAY_SIGN_DETECTED, ROUNDABOUT_SIGN_DETECTED,
+    NO_ENTRY_SIGN_DETECTED, PEDESTRIAN_DETECTED, CAR_DETECTED, ROADBLOCK_DETECTED,
+    TRACKING_NODE, FINAL_NODE_REACHED, WAITING_CROSSWALK, CROSSWALK_TIMEOUT,
+    
+    # Signs
+    STOP_SIGN, PARKING_SIGN, CROSSWALK_SIGN, PRIORITY_SIGN, HIGHWAY_ENTRY_SIGN, PRIORITY_SIGN_DETECTED,
+    HIGHWAY_END_SIGN, ONE_WAY_SIGN, ROUNDABOUT_SIGN, NO_ENTRY_SIGN,
+
+    # Obstacles
+    PEDESTRIAN, CAR, ROADBLOCK,
+
     # Rutinas
     control_for_signs
 )
@@ -54,17 +66,33 @@ class StateMachine():
                 STOP_LINE_APPROACH_DISTANCE_THRESHOLD: approaching_stop_line,
                 CONTINUE_LANE_FOLLOWING: lane_following,
             },
-            classifying_sign: {STOP_SIGN_DETECTED: stop_car,
-                               PARKING_SIGN_DETECTED: parking_state,
-                               HIGHWAY_ENTRY_SIGN_DETECTED: highway_state},
-            stop_car: {
-                WAITING_STOP: stop_car,
-                TIMEOUT_STOP: lane_following},
+            classifying_sign: {
+                STOP_SIGN_DETECTED: stop_state,
+                PARKING_SIGN_DETECTED: parking_state,
+                HIGHWAY_ENTRY_SIGN_DETECTED: highway_state,
+                ONE_WAY_SIGN_DETECTED: tracking_local_path,
+                ROUNDABOUT_SIGN_DETECTED: tracking_local_path,
+                NO_ENTRY_SIGN_DETECTED: tracking_local_path,
+                CROSSWALK_SIGN_DETECTED: crosswalk_state,
+
+            },
+            stop_state: {
+                WAITING_STOP: stop_state,
+                TIMEOUT_STOP: lane_following
+            },
             highway_state: {
                 IN_HIGHWAY: highway_state,
                 HIGHWAY_END_SIGN_DETECTED: lane_following,
             },
-            parking_state: {PARKING_COMPLETED: lane_following, TRY_PARKING: parking_state},
+            parking_state: {
+                PARKING_COMPLETED: lane_following, 
+                TRY_PARKING: parking_state
+            },
+            crosswalk_state: {
+                WAITING_CROSSWALK: crosswalk_state,
+                CROSSWALK_TIMEOUT: lane_following, 
+            },
+            
             waiting_for_pedestrian: {PEDESTRIAN_TIMEOUT: lane_following},
             overtaking_moving_car: {CAR_OVERTAKEN: lane_following},
             overtaking_static_car: {CAR_OVERTAKEN: lane_following},
@@ -80,16 +108,15 @@ class StateMachine():
                 IF_STATIC: overtaking_static_car,
             },
             approaching_stop_line: {
-                CROSSWALK_SIGN_DETECTED: crosswalk_navigation,
                 INTERSECTION_TRAFFIC_LIGHT_EVENT: waiting_for_green,
                 INTERSECTION_STOP_EVENT: waiting_at_stopline,
-                JUNCTION_EVENT: intersection_navigation,
-                INTERSECTION_PRIORITY_EVENT: intersection_navigation,
-                ROUNDABOUT_EVENT: roundabout_navigation,
             },
             crosswalk_navigation: {TIMEOUT_CROSSWALK: lane_following},
             roundabout_navigation: {ALWAYS: tracking_local_path},
-            tracking_local_path: {END_OF_LOCAL_PATH: lane_following},
+            tracking_local_path: {
+                TRACKING_NODE: tracking_local_path,
+                FINAL_NODE_REACHED: lane_following
+                },
             intersection_navigation: {ALWAYS: tracking_local_path},
             waiting_at_stopline: {TIMEOUT_STOPLINE: intersection_navigation},
             waiting_for_green: {SEMAPHORE_GREEN: intersection_navigation}
@@ -134,6 +161,10 @@ class StateMachine():
             HIGHWAY_ENTRY_SIGN_DETECTED: self.on_highway_entry_sign_detected,
             IN_HIGHWAY: self.on_highway,
             HIGHWAY_END_SIGN_DETECTED: self.on_highway_end_sign_detected,
+        
+            ONE_WAY_SIGN_DETECTED: self.on_one_way_sign_detected,
+            ROUNDABOUT_SIGN_DETECTED: self.on_roundabout_way_sign_detected,
+            NO_ENTRY_SIGN_DETECTED: self.on_no_entry_sign_detected,
         }
 
         
@@ -148,8 +179,11 @@ class StateMachine():
         
         # STOP
         self.stop_time = 3
+        # CROSSWALK
+        self.timeout_crosswalk = 6
 
         self.current_state = parking_state #start_state
+
         self.current_speed = None
         self.current_steer = None
         self.current_direction = None
@@ -179,30 +213,42 @@ class StateMachine():
             if any(valid_distance for _, valid_distance in objects_detected):
                 self.change_state(SIGN_DISTANCE_THRESHOLD)
 
-            self.change_state("CONTINUE_LANE_FOLLOWING")
+            self.change_state(CONTINUE_LANE_FOLLOWING)
         
         elif self.current_state == classifying_sign:
             for sign_name, valid_distance in objects_detected:
-                if sign_name == "STOP" and valid_distance:
+                if sign_name == STOP_SIGN and valid_distance:
                     self.change_state(STOP_SIGN_DETECTED)
-                elif sign_name == "PARKING" and valid_distance:
+                elif sign_name == PARKING_SIGN and valid_distance:
                     self.change_state(PARKING_SIGN_DETECTED)
-                elif sign_name == "CROSSWALK" and valid_distance:
+                elif sign_name == CROSSWALK_SIGN and valid_distance:
                     self.change_state(CROSSWALK_SIGN_DETECTED)
-                elif sign_name == "PRIORITY" and valid_distance:
-                    self.change_state('')
-                elif sign_name == "HIGHWAY_ENTRY" and valid_distance:
+                elif sign_name == PRIORITY_SIGN and valid_distance:
+                    #TODO: talvez desactivar la deteccion de autos con una variable sign_name == "CAR" and valid_distance and priority == False
+                    # pero podria generar problemas al tener un auto de frente y con velocidad menor a la nuestra
+                    self.change_state(PRIORITY_SIGN_DETECTED)
+                elif sign_name == HIGHWAY_ENTRY_SIGN and valid_distance:
                     self.change_state(PARKING_SIGN_DETECTED)
-                elif sign_name == "ROUNDABOUT" and valid_distance:
-                    self.change_state(PARKING_SIGN_DETECTED)
-                elif sign_name == "NO_ENTRY" and valid_distance:
-                    self.change_state(PARKING_SIGN_DETECTED)
-                elif sign_name == "PEDESTRIAN" and valid_distance:
-                    self.change_state(PARKING_SIGN_DETECTED)
-                elif sign_name == "CAR" and valid_distance:
-                    self.change_state(PARKING_SIGN_DETECTED)
+                elif sign_name == ONE_WAY_SIGN and valid_distance:
+                    #TODO: desactivar el intento de traspasar autos creo
+                    self.change_state(ONE_WAY_SIGN_DETECTED)
+                elif sign_name == ROUNDABOUT_SIGN and valid_distance:
+                    #TODO: activar seguimiento de nodos para movernos
+                    self.change_state(ROUNDABOUT_SIGN_DETECTED)
+                elif sign_name == NO_ENTRY_SIGN and valid_distance:
+                    #TODO: tachar un nodo de la lista de nodos como no utilizable
+                    self.change_state(NO_ENTRY_SIGN_DETECTED)
+                elif sign_name == PEDESTRIAN and valid_distance:
+                    #TODO: parar hasta que deje de detectar
+                    self.change_state(PEDESTRIAN_DETECTED)
+                elif sign_name == CAR and valid_distance:
+                    #TODO: parar hasta que deje de detectar
+                    self.change_state(CAR_DETECTED)
+                elif sign_name == ROADBLOCK and valid_distance:
+                    #TODO: esquivar
+                    self.change_state(ROADBLOCK_DETECTED)
 
-        elif self.current_state == stop_car:
+        elif self.current_state == stop_state:
             if self.timeout_stop == -1:
                 self.change_state(TIMEOUT_STOP) 
             else:
@@ -215,17 +261,16 @@ class StateMachine():
         elif self.current_state == highway_state:
             if self.highway_end == True:
                 self.change_state(HIGHWAY_END_SIGN_DETECTED)
-                self.highway_end = False
             else:
                 self.change_state(IN_HIGHWAY)
         
         elif self.current_state == classifying_obstacle:
             for object_name, valid_distance in objects_detected:
-                if object_name == "PEDESTRIAN" and valid_distance:
+                if object_name == PEDESTRIAN and valid_distance:
                     self.change_state(OBSTACLE_PEDESTRIAN)
-                elif object_name == "CAR" and valid_distance:
+                elif object_name == CAR and valid_distance:
                     self.change_state(OBSTACLE_CAR)
-                elif object_name == "ROADBLOCK" and valid_distance:
+                elif object_name == ROADBLOCK and valid_distance:
                     self.change_state(OBSTACLE_ROADBLOCK)
         return self.current_speed, self.current_steer
      
@@ -236,7 +281,7 @@ class StateMachine():
         # esto va para tracking_local_path, self.path serian los nodos a tomar
         #self.cx = [float(self.track_graph.nodes[node]["x"]) for node in self.path]
         #self.cy = [float(self.track_graph.nodes[node]["y"]) for node in self.path]
-        # roundabout_event setea path y always/ on_tracking_local_path ejecuta pure pursuit
+        # roundabout_event setea path y TRACKING_NODE ejecuta pure pursuit
 
     def on_obstacle_detected(self): pass
 
@@ -301,22 +346,54 @@ class StateMachine():
         current_time = time.time()  
         elapsed_time = current_time - self.timeout_stop 
         if elapsed_time >= self.stop_time:
-            self.on_timeout_stop
+            self.on_timeout_stop()
     def on_timeout_stop(self):
         self.timeout_stop = -1 
         
     def on_highway_entry_sign_detected(self):
+        self.highway_end = False
         self.current_speed(300)
-        #deberia tener en cuenta el nodo actual y pasar a tracking local path hasta llegar a la segunda linea
-        pass
     def on_highway(self):
         # revisa posicion actual, nodo actual y ve si cambia o no. al llegar al nodo final, levanta una bandera aunque ya deberia
         # haber detectado la senal de fin de highway POSIBLENTE NO SEA NECESARIO CONSULTAR NODOS
-        if any(sign == "highway_end_sign" and valid_distance for sign, valid_distance in self.objects_detected):
-                self.on_highway_end_sign_detected
+        if any(sign == HIGHWAY_END_SIGN and valid_distance for sign, valid_distance in self.objects_detected):
+                self.on_highway_end_sign_detected()
         pass
     def on_highway_end_sign_detected(self):
         self.highway_end = True
+
+    def on_one_way_sign_detected(self):
+        final_node_reached = False
+
+        #TODO: inicializar nodo inicial, nodo a seguir y nodo final del path local tracking
+        pass
+    def on_roundabout_way_sign_detected(self):
+        final_node_reached = False
+
+        #TODO: inicializar nodo inicial, nodo a seguir y nodo final del path local tracking
+        pass
+    def on_no_entry_sign_detected(self):
+        #TODO: inicializar nodo inicial, nodo a seguir y nodo final del path local tracking
+        final_node_reached = False
+        pass
+    def on_tracking_node(self):
+        # if actual_node == final_node: self.on_final_node_reached()
+        # TODO: aca deberia setear el siguiente nodo a seguir modificando direccion
+        pass
+    def on_final_node_reached(self):
+        final_node_reached = True
+
+    def on_crosswalk_sign_detected(self):
+        self.crosswalk_speed = self.current_speed
+        self.timeout_crosswalk = time.time()
+        self.current_speed(50)
+    def on_crosswalk_waiting(self):
+        current_time = time.time()  
+        elapsed_time = current_time - self.timeout_crosswalk 
+        if elapsed_time >= self.stop_time:
+            self.on_crosswalk_timeout()
+    def on_crosswalk_timeout(self):
+        self.current_speed = self.crosswalk_speed
 
     def on_pedestrian_timeout(self): pass
     def on_car_overtaken(self): pass
