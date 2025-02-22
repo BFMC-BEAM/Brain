@@ -32,8 +32,10 @@ class Routine():
         self.name = name
         self.method = method
         self.active = activated
+
     def __str__(self):
         return self.name
+
     def run(self):
         self.method()
 
@@ -42,11 +44,7 @@ class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
         self.control_system = ControlSystem()
-        # INITIALIZE ROUTINES
-        # self.routines = {        
-        #    CONTROL_FOR_SIGNS: Routine(CONTROL_FOR_SIGNS,  self.control_for_signs),         
-        # }
-        # mat state
+        
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
             lane_following: {
@@ -168,8 +166,6 @@ class StateMachine():
         else:
             print(f"No se puede cambiar al estado con el evento: {event} desde {self.current_state}")
     #===================== EVENT HANDLING =====================#
-        
-
     def handle_events(self, act_deviation, num_lines_detected, objects_detected, current_speed, current_steer, direction, ultra_values):
         self.current_deviation = act_deviation if act_deviation is not None else self.current_deviation
         self.num_lines_detected = num_lines_detected if num_lines_detected is not None else self.num_lines_detected
@@ -341,7 +337,7 @@ class StateMachine():
     def on_end_of_local_path(self): pass
     def on_timeout_stopline(self): pass
     def on_semaphore_green(self): pass
-
+'''
     #===================== STATE MACHINE MANAGEMENT =====================#
     def run(self):
         """Método principal que se ejecuta en cada iteración del ciclo."""
@@ -369,3 +365,4 @@ class StateMachine():
         print(f'CURR_SIGN: {self.curr_sign}')
         print(f'CURR_LINES: {self.act_lines}')
         print(f'CURR_DEV: {self.act_deviation}')
+'''
