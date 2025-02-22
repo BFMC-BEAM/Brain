@@ -336,7 +336,12 @@ class StateMachine():
 
     def on_lane_following(self): 
         self.current_steer = self.control_system.adjust_direction(self.current_deviation, self.current_direction)
-        self.current_speed = "50"
+        
+        # SOL A
+        if self.in_crosswalk == True:
+            self.current_speed = "50"
+        else:
+            self.current_speed = "100"
 
     def on_stop_sign_detected(self):
         # TODO: revisar valor de stop que recibe el modulo
@@ -354,8 +359,9 @@ class StateMachine():
         self.highway_end = False
         self.current_speed(300)
     def on_highway(self):
-        # revisa posicion actual, nodo actual y ve si cambia o no. al llegar al nodo final, levanta una bandera aunque ya deberia
+        # TODO:revisa posicion actual, nodo actual y ve si cambia o no. al llegar al nodo final, levanta una bandera aunque ya deberia
         # haber detectado la senal de fin de highway POSIBLENTE NO SEA NECESARIO CONSULTAR NODOS
+        # si da igual el tema de nodos, entonce esta funcion no sirve, cuando detecta, en on highway entry sign detected, aumenta velocidad, guardando la actual, y cuando detecta el fin, retoma la velocidad inicla
         if any(sign == HIGHWAY_END_SIGN and valid_distance for sign, valid_distance in self.objects_detected):
                 self.on_highway_end_sign_detected()
         pass
@@ -387,6 +393,9 @@ class StateMachine():
         self.crosswalk_speed = self.current_speed
         self.timeout_crosswalk = time.time()
         self.current_speed(50)
+        
+        # SOL A
+        self.in_crosswalk = True
     def on_crosswalk_waiting(self):
         current_time = time.time()  
         elapsed_time = current_time - self.timeout_crosswalk 
@@ -394,6 +403,10 @@ class StateMachine():
             self.on_crosswalk_timeout()
     def on_crosswalk_timeout(self):
         self.current_speed = self.crosswalk_speed
+
+
+        # SOL A
+        self.in_crosswalk = False
 
     def on_pedestrian_timeout(self): pass
     def on_car_overtaken(self): pass
@@ -404,14 +417,8 @@ class StateMachine():
     def on_obstacle_too_far(self): pass
     def on_car_moving(self): pass
     def on_car_static(self): pass
-    def on_crosswalk_event(self): pass
-    def on_timeout_crosswalk(self): pass
     def on_waiting_for_green(self): pass
     def on_waiting_at_stopline(self): pass
-    def on_intersection_navigation(self): pass
-    def on_roundabout_navigation(self): pass
-    def on_always(self): pass
-    def on_end_of_local_path(self): pass
     def on_timeout_stopline(self): pass
     def on_semaphore_green(self): pass
 '''
