@@ -5,7 +5,7 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (CVCamera, serialCamera, Deviation, Direction, Lines, Intersection)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
-from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
+from src.ComputerVision.LaneDetection.lane_detection_onnx import LaneDetectionProcessor
 import time
 
 class threadLaneDetection(ThreadWithStop):
@@ -44,24 +44,25 @@ class threadLaneDetection(ThreadWithStop):
             nparr = np.frombuffer(decoded_image_data, np.uint8)
             FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-            FrameCameraPro=self.processor.process_image(FrameCamera)
+            e2, e3, _=self.processor.process_image(FrameCamera)
             
-            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
-            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
-            self.image_sender.send(serialEncodedImageData)
+            #_, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
+            #serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+            self.image_sender.send(FrameCamera)
+            self.direction.send(e3)
+            self.deviation.send(e2)
+            self.act_deviation = e2
+            #ret = self.processor.get_parameters(self.act_deviation)
+            #new_cant_lines = self.processor.get_lines()
             
-            ret = self.processor.get_parameters(self.act_deviation)
-            new_cant_lines = self.processor.get_lines()
-            is_possible_signal = self.processor.get_in_possible_signal()
-            if new_cant_lines != self.act_lines:
-                self.lines.send(new_cant_lines)
-                self.act_lines = new_cant_lines
-            if ret[0] != -1000:
-                self.direction.send(ret[1])
-                self.deviation.send(ret[0])
-                self.act_deviation = ret[0]
-            if is_possible_signal is True:
-                self.intersection.send(serialEncodedImageData)
+            #is_possible_signal = self.processor.get_in_possible_signal()
+            #if new_cant_lines != self.act_lines:
+            #    self.lines.send(new_cant_lines)
+            #    self.act_lines = new_cant_lines
+        
+
+            #if is_possible_signal is True:
+            #    self.intersection.send(serialEncodedImageData)
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""

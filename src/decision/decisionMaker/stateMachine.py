@@ -1,6 +1,8 @@
 import time
-import networkx as nx # grafo
+import networkx as nx
+import numpy as np # grafo
 
+from decision.lineFollowing.purepursuitpd import Controller
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.utils.constants import (
@@ -55,7 +57,8 @@ class Routine():
 class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
-        self.control_system = ControlSystem()
+        self.control_system = Controller()
+        self.desired_speed = 0.2
         
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
@@ -335,8 +338,11 @@ class StateMachine():
         #end time setear en None y en handle events consultar esta variable
 
     def on_lane_following(self): 
-        self.current_steer = self.control_system.adjust_direction(self.current_deviation, self.current_direction)
-        self.current_speed = "50"
+        speed, angle_ref = self.control_system.get_control(self.current_deviation, self.current_direction, 0, self.desired_speed)
+        angle_ref = np.rad2deg(angle_ref)
+        self.current_steer = str(angle_ref)
+        #self.current_steer = self.control_system.adjust_direction(self.current_deviation, self.current_direction)
+        self.current_speed = str(speed * 100)
 
     def on_stop_sign_detected(self):
         # TODO: revisar valor de stop que recibe el modulo
