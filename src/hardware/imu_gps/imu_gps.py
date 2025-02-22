@@ -15,7 +15,7 @@ class imu_gps():
     def setInitialConditions(self, initialData):
         self.x = initialData.get('x', 0)
         self.y = initialData.get('y', 0)
-        self.z = initialData.get('z', 0)
+        self.yaw = initialData.get('yaw', 0)
 
     def getGpsData(self, imuData, delta_time):
         """Integración doble con ajuste de yaw."""

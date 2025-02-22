@@ -61,6 +61,7 @@ from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
 from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
+from src.hardware.imu_gps.processimu_gps import processimu_gps
 # ======================================== SETTING UP ====================================
 allProcesses = list()
 
@@ -83,6 +84,7 @@ SerialHandler = True
 DecisionMaker = True
 LaneDetection = False
 ObjectDetection = False
+ImuGPS = True
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================
@@ -127,6 +129,10 @@ if DecisionMaker:
     processDecisionMaker = processDecisionMaker(queueList, logging, debugging = False)
     allProcesses.append(processDecisionMaker)
 
+if ImuGPS:
+    processimu_gps = processimu_gps(queueList, logging, debugging = False)
+    allProcesses.append(processimu_gps)
+
 if LaneDetection:
     processLaneDetection = processLaneDetection(queueList, logging, debugging = False)
     allProcesses.append(processLaneDetection)
@@ -134,6 +140,7 @@ if LaneDetection:
 if ObjectDetection:
     processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
     allProcesses.append(processObjectDetection)
+
 # ------ New component runs ends here ------#
 
 # ===================================== START PROCESSES ==================================
