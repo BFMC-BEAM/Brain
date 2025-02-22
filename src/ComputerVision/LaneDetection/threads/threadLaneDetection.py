@@ -27,7 +27,7 @@ class threadLaneDetection(ThreadWithStop):
         self.direction = messageHandlerSender(self.queuesList, Direction)
         self.intersection = messageHandlerSender(self.queuesList, Intersection)
         self.lines = messageHandlerSender(self.queuesList, Lines) #TODO: modificar nombre
-        self.processor = LaneDetectionProcessor(type="simulator")
+        self.processor = LaneDetectionProcessor()
         super(threadLaneDetection, self).__init__()
         self.act_deviation = 0.
         self.act_lines = -1     # detected lines counter, 0 none, 1 if detected left or right, 2 normal
@@ -46,11 +46,11 @@ class threadLaneDetection(ThreadWithStop):
 
             e2, e3, _=self.processor.process_image(FrameCamera)
             
-            #_, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
-            #serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
-            self.image_sender.send(FrameCamera)
-            self.direction.send(e3)
-            self.deviation.send(e2)
+            _, serialEncodedImg = cv2.imencode(".jpg", self.processor.last_frame)
+            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+            self.image_sender.send(serialEncodedImageData)
+            self.direction.send(float(e3))
+            self.deviation.send(float(e2))
             self.act_deviation = e2
             #ret = self.processor.get_parameters(self.act_deviation)
             #new_cant_lines = self.processor.get_lines()

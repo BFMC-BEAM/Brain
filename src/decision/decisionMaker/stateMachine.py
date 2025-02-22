@@ -2,7 +2,7 @@ import time
 import networkx as nx
 import numpy as np # grafo
 
-from decision.lineFollowing.purepursuitpd import Controller
+from src.decision.lineFollowing.purepursuitpd import Controller
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.utils.constants import (
@@ -185,7 +185,7 @@ class StateMachine():
         # CROSSWALK
         self.timeout_crosswalk = 6
 
-        self.current_state = parking_state #start_state
+        self.current_state = lane_following #start_state
 
         self.current_speed = None
         self.current_steer = None
@@ -197,15 +197,14 @@ class StateMachine():
         """Cambia el estado basándose en el evento."""
         if self.current_state in self.state_transitions and event in self.state_transitions[self.current_state]:
             new_state = self.state_transitions[self.current_state][event]
-            print(f"Cambiando de estado: {self.current_state} -> {new_state} por evento: {event}")
+            #print(f"Cambiando de estado: {self.current_state} -> {new_state} por evento: {event}")
             self.event_methods[event]()
             self.current_state = new_state
         else:
             print(f"No se puede cambiar al estado con el evento: {event} desde {self.current_state}")
     #===================== EVENT HANDLING =====================#
-    def handle_events(self, act_deviation, num_lines_detected, objects_detected, current_speed, current_steer, direction, ultra_values):
+    def handle_events(self, act_deviation, objects_detected, current_speed, current_steer, direction, ultra_values):
         self.current_deviation = act_deviation if act_deviation is not None else self.current_deviation
-        self.num_lines_detected = num_lines_detected if num_lines_detected is not None else self.num_lines_detected
         self.objects_detected = objects_detected if objects_detected is not None else self.objects_detected
         self.current_speed = current_speed if current_speed is not None else self.current_speed
         self.current_steer = current_steer if current_steer is not None else self.current_steer
@@ -213,7 +212,7 @@ class StateMachine():
         self.current_ultra_values = ultra_values if ultra_values is not None else self.current_ultra_values
         
         if self.current_state == lane_following:
-            if any(valid_distance for _, valid_distance in objects_detected):
+            if objects_detected and any(valid_distance for _, valid_distance in objects_detected):
                 self.change_state(SIGN_DISTANCE_THRESHOLD)
 
             self.change_state(CONTINUE_LANE_FOLLOWING)
@@ -340,9 +339,9 @@ class StateMachine():
     def on_lane_following(self): 
         speed, angle_ref = self.control_system.get_control(self.current_deviation, self.current_direction, 0, self.desired_speed)
         angle_ref = np.rad2deg(angle_ref)
-        self.current_steer = str(angle_ref)
-        #self.current_steer = self.control_system.adjust_direction(self.current_deviation, self.current_direction)
-        self.current_speed = str(speed * 100)
+        self.current_steer = f"{int(angle_ref)}"
+        self.current_speed = f"{speed * 1000}"
+
 
     def on_stop_sign_detected(self):
         # TODO: revisar valor de stop que recibe el modulo

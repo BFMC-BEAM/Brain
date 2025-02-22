@@ -3,7 +3,7 @@ import numpy as np
 import cv2 as cv
 from os.path import join, dirname, realpath
 
-from ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
+from src.ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
 
 this_dir = dirname(realpath(__file__))
 IMG_SIZE = (32,32) 
@@ -17,8 +17,10 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         self.lane_keeper = cv.dnn.readNetFromONNX(BEAM_LANE_KEEPER_PATH)
         self.lane_cnt = 0
         self.avg_lane_detection_time = 0
+        self.last_frame = None
         
     def process_image(self, frame):
+        self.last_frame = frame
         self.preprocess(frame)
         start_time = time()
         blob = self.preprocess(frame)
