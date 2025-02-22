@@ -74,7 +74,7 @@ class threadDecisionMaker(ThreadWithStop):
                 if target_speed != self.current_speed:
                     self.speedSender.send(str(target_speed))
                 if target_steer != self.current_steer:
-                    print("cambindo direccion")
+                    #print("cambindo direccion")
                     self.steerSender.send(target_steer)
 
             elif curr_drivingMode == "manual":

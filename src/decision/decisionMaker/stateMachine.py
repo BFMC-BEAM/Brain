@@ -137,15 +137,10 @@ class StateMachine():
             IF_OBSTACLE_TOO_FAR: self.on_obstacle_too_far,
             IF_MOVING: self.on_car_moving,
             IF_STATIC: self.on_car_static,
-            CROSSWALK_SIGN_DETECTED: self.on_crosswalk_event,
-            TIMEOUT_CROSSWALK: self.on_timeout_crosswalk,
+            CROSSWALK_SIGN_DETECTED: self.on_crosswalk_sign_detected,
+            TIMEOUT_CROSSWALK: self.on_crosswalk_timeout,
             INTERSECTION_TRAFFIC_LIGHT_EVENT: self.on_waiting_for_green,
             INTERSECTION_STOP_EVENT: self.on_waiting_at_stopline,
-            JUNCTION_EVENT: self.on_intersection_navigation,
-            INTERSECTION_PRIORITY_EVENT: self.on_intersection_navigation,
-            ROUNDABOUT_EVENT: self.on_roundabout_navigation,
-            ALWAYS: self.on_always,
-            END_OF_LOCAL_PATH: self.on_end_of_local_path,
             SEMAPHORE_GREEN: self.on_semaphore_green,
             TIMEOUT_STOPLINE: self.on_timeout_stopline,
 
@@ -171,7 +166,7 @@ class StateMachine():
         # PARKING
         self.parking_start_time = time.time()  
         self.parking_step = 0  
-        self.parking_duration = [2, 1, 1, 1, 1]  
+        self.parking_duration = [3, 1, 2, 2, 2, 3]  
         self.parking_end_time = None
 
         # HIGHWAY
@@ -181,6 +176,7 @@ class StateMachine():
         self.stop_time = 3
         # CROSSWALK
         self.timeout_crosswalk = 6
+        self.in_crosswalk = False
 
         self.current_state = parking_state #start_state
 
@@ -189,12 +185,13 @@ class StateMachine():
         self.current_direction = None
         self.current_deviation = None
         self.objects_detected = None
+
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
         """Cambia el estado basándose en el evento."""
         if self.current_state in self.state_transitions and event in self.state_transitions[self.current_state]:
             new_state = self.state_transitions[self.current_state][event]
-            print(f"Cambiando de estado: {self.current_state} -> {new_state} por evento: {event}")
+            #print(f"Cambiando de estado: {self.current_state} -> {new_state} por evento: {event}")
             self.event_methods[event]()
             self.current_state = new_state
         else:
@@ -210,12 +207,12 @@ class StateMachine():
         self.current_ultra_values = ultra_values if ultra_values is not None else self.current_ultra_values
         
         if self.current_state == lane_following:
-            if any(valid_distance for _, valid_distance in objects_detected):
+            if objects_detected and any(valid_distance for _, valid_distance in objects_detected):
                 self.change_state(SIGN_DISTANCE_THRESHOLD)
 
             self.change_state(CONTINUE_LANE_FOLLOWING)
         
-        elif self.current_state == classifying_sign:
+        elif self.current_state == classifying_sign and objects_detected:
             for sign_name, valid_distance in objects_detected:
                 if sign_name == STOP_SIGN and valid_distance:
                     self.change_state(STOP_SIGN_DETECTED)
@@ -264,7 +261,7 @@ class StateMachine():
             else:
                 self.change_state(IN_HIGHWAY)
         
-        elif self.current_state == classifying_obstacle:
+        elif self.current_state == classifying_obstacle and objects_detected:
             for object_name, valid_distance in objects_detected:
                 if object_name == PEDESTRIAN and valid_distance:
                     self.change_state(OBSTACLE_PEDESTRIAN)
@@ -293,37 +290,55 @@ class StateMachine():
 
     def on_parking(self):
         self.parking_start_time = time.time()  
+        self.parking_step = 0 
+        self.a=False
+        self.b = False
+        self.c = False
+        self.d = False
     def try_parking(self): 
+        if self.a == False: 
+            self.parking_start_time = time.time()  
+            self.a = True
+
         current_time = time.time()  
         elapsed_time = current_time - self.parking_start_time 
 
         if self.parking_step == 0:  
-            self.current_speed = 100
-            self.current_steer = 0
+
+            self.current_speed = "200"
+            self.current_steer = "0"
             if elapsed_time >= self.parking_duration[0]:
                 self.parking_step += 1
                 self.parking_start_time = current_time  
-        elif self.parking_step == 1:  
-            self.current_speed = 0
-            self.current_steer = 240
+        elif self.parking.step == 1:
+            self.current_steer = "240"
             if elapsed_time >= self.parking_duration[1]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 2:  
-            self.current_speed = -100
-            self.current_steer = 240
+            self.current_speed = "-50"
             if elapsed_time >= self.parking_duration[2]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
-        elif self.parking_step == 3: 
-            self.current_speed = 100
-            self.current_steer = 120
+        elif self.parking_step == 3:  
+
+            self.current_speed = "-100"
+            self.current_steer = "0"
+            if elapsed_time >= self.parking_duration[2]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 3:
+            if self.d == False: 
+                print("ejecutando paso 4")
+                self.d = True 
+            self.current_speed = "-50"
+            self.current_steer = "-240"
             if elapsed_time >= self.parking_duration[3]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 4:
-            self.current_speed = 0
-            self.current_steer = 0
+            self.current_speed = "0"
+            self.current_steer = "0"
             if elapsed_time >= self.parking_duration[4]:
                 self.parking_step = 0  
                 self.parking_start_time = None 
