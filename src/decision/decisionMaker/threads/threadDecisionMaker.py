@@ -1,3 +1,4 @@
+import time
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.templates.threadwithstop import ThreadWithStop
@@ -68,12 +69,13 @@ class threadDecisionMaker(ThreadWithStop):
                 target_speed, target_steer = self.state_machine.handle_events(
                     self.current_deviation, self.objects_detected, self.current_speed, self.current_steer, self.direction, ultra_values
                 )
-                print("recibo:", target_speed, target_steer)
+                #print("recibo:", target_speed, target_steer)
 
                 if target_speed != self.current_speed:
                     self.speedSender.send(str(target_speed))
-                    self.current_speed = target_speed
+                    #self.current_speed = target_speed
                 if target_steer != self.current_steer:
+                    print("recibo:", target_speed, target_steer)
                     #print("cambindo direccion")
                     self.steerSender.send(target_steer)
                     self.current_steer = target_steer
@@ -91,6 +93,7 @@ class threadDecisionMaker(ThreadWithStop):
             # elif curr_drivingMode == "stop":
             #     self.speedSender.send("0")
             #     self.steerSender.send("0")
+            time.sleep(0.03)
 
             
 

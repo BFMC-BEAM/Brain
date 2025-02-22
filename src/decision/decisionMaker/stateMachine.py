@@ -58,7 +58,7 @@ class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
         self.control_system = Controller()
-        self.desired_speed = 0.2
+        self.desired_speed = 0.1
         
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
@@ -192,6 +192,7 @@ class StateMachine():
         self.current_direction = None
         self.current_deviation = None
         self.objects_detected = None
+        self.current_ultra_values = None
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
         """Cambia el estado basándose en el evento."""
@@ -339,8 +340,8 @@ class StateMachine():
     def on_lane_following(self): 
         speed, angle_ref = self.control_system.get_control(self.current_deviation, self.current_direction, 0, self.desired_speed)
         angle_ref = np.rad2deg(angle_ref)
-        self.current_steer = f"{int(angle_ref)}"
-        self.current_speed = f"{speed * 1000}"
+        self.current_steer = f"{int((angle_ref + 3 )* 10)}"
+        self.current_speed = f"{int(speed * 1000)}"
 
 
     def on_stop_sign_detected(self):

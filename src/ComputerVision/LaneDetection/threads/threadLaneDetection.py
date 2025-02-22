@@ -30,6 +30,7 @@ class threadLaneDetection(ThreadWithStop):
         self.processor = LaneDetectionProcessor()
         super(threadLaneDetection, self).__init__()
         self.act_deviation = 0.
+        self.frame_count = 0
         self.act_lines = -1     # detected lines counter, 0 none, 1 if detected left or right, 2 normal
 
 
@@ -39,19 +40,22 @@ class threadLaneDetection(ThreadWithStop):
             if FrameCamera is None:
                 continue
             start_time = time.time()
+            if self.frame_count % 1 == 0:
+                decoded_image_data = base64.b64decode(FrameCamera)
+                nparr = np.frombuffer(decoded_image_data, np.uint8)
+                FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-            decoded_image_data = base64.b64decode(FrameCamera)
-            nparr = np.frombuffer(decoded_image_data, np.uint8)
-            FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-            e2, e3, _=self.processor.process_image(FrameCamera)
+                e2, e3, _=self.processor.process_image(FrameCamera)
+                
+                _, serialEncodedImg = cv2.imencode(".jpg", self.processor.last_frame)
+                serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+                self.image_sender.send(serialEncodedImageData)
             
-            _, serialEncodedImg = cv2.imencode(".jpg", self.processor.last_frame)
-            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
-            self.image_sender.send(serialEncodedImageData)
-            self.direction.send(float(e3))
-            self.deviation.send(float(e2))
-            self.act_deviation = e2
+                self.direction.send(float(e3))
+                self.deviation.send(float(e2))
+                self.act_deviation = e2
+            else : self.image_sender.send(FrameCamera)
+            self.frame_count += 1
             #ret = self.processor.get_parameters(self.act_deviation)
             #new_cant_lines = self.processor.get_lines()
             
