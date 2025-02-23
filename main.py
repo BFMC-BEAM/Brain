@@ -60,7 +60,7 @@ from src.data.TrafficCommunication.processTrafficCommunication import processTra
 from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
-from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
+# from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
 from src.hardware.imu_gps.processimu_gps import processimu_gps
 # ======================================== SETTING UP ====================================
 allProcesses = list()
@@ -137,9 +137,9 @@ if LaneDetection:
     processLaneDetection = processLaneDetection(queueList, logging, debugging = False)
     allProcesses.append(processLaneDetection)
 
-if ObjectDetection:
-    processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
-    allProcesses.append(processObjectDetection)
+# if ObjectDetection:
+#     processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
+#     allProcesses.append(processObjectDetection)
 
 # ------ New component runs ends here ------#
 

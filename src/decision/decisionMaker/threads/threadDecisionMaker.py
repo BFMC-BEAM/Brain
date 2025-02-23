@@ -31,14 +31,14 @@ class threadDecisionMaker(ThreadWithStop):
         while self._running:
             ## Recieves the sub values
             ultraVals = self.subscribers["Ultra"].receive()
-            objectDetection = self.subscribers["CV_ObjectDetection_Type"].receive()
+            # objectDetection = self.subscribers["CV_ObjectDetection_Type"].receive()
             self.currentSpeed  = self.subscribers["CurrentSpeed"].receive() or self.currentSpeed 
             self.currentSteer  = self.subscribers["CurrentSteer"].receive() or self.currentSteer
             targetSpeed =  self.subscribers["SpeedMotor"].receive() or self.currentSpeed 
             targetSteer =  self.subscribers["SteerMotor"].receive() or self.currentSteer 
             # Decides speed based on distance safe check
             decidedSpeed, decidedSteer = self.distanceModule.check_distance(ultraVals, targetSpeed, targetSteer)
-            decidedSpeed = self.distanceModule.handle_stop_signal_logic(objectDetection, decidedSpeed)
+            # decidedSpeed = self.distanceModule.handle_stop_signal_logic(objectDetection, decidedSpeed)
             # If there's change in steer or speed, sends the message to the nucleo board
             if self.currentSpeed != decidedSpeed:
                 self.speedSender.send(decidedSpeed)

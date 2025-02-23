@@ -33,7 +33,7 @@ import picamera2
 import time
 
 from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
-from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
+# from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 from src.utils.messages.allMessages import (
     CVCamera,
     mainCamera,
@@ -71,9 +71,9 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
-        self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
+        # self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
         #self.processor = LaneDetectionProcessor(type="simulator")
-        self.processor = ObjectDetectionProcessor()
+        # self.processor = ObjectDetectionProcessor()
 
         self.subscribe()
         self._init_camera()
@@ -164,10 +164,10 @@ class threadCamera(ThreadWithStop):
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 out, valid_distance = self.processor.process_image(serialRequest)
 
-                if not valid_distance:
-                    self.ObjectDetection_Type.send("stop_signal")
-                else:
-                    self.ObjectDetection_Type.send("no_signal")
+                # if not valid_distance:
+                #     self.ObjectDetection_Type.send("stop_signal")
+                # else:
+                #     self.ObjectDetection_Type.send("no_signal")
 
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", out)
