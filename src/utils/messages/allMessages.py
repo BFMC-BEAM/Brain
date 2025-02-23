@@ -59,6 +59,7 @@ class LaneKeeping(Enum):
     msgID = 5
     msgType = "int"
 
+
 ################################# processCarsAndSemaphores ##################################
 class Cars(Enum):
     Queue = "General"
@@ -255,14 +256,43 @@ class CVCamera(Enum):
     Owner = "ComputerVision"
     msgID = 1
     msgType = "str"
-### It will have this format: {"WarningName":"name1", "WarningID": 1}
 
-class CV_ObjectDetection_Type(Enum):
+class CVCameraProcessed(Enum):      #queue para enviar el frame con el procesamiento de deteccion de linea y objeto
     Queue = "General"
-    Owner = "CV_ObjectDetection_Type"
-    msgID = 1
+    Owner = "ComputerVision"
+    msgID = 2
     msgType = "str"
 
+class Deviation(Enum):
+    Queue = "Critical"
+    Owner = "ComputerVision"
+    msgID = 3
+    msgType = "float"
+
+class Direction(Enum):
+    Queue = "Critical"
+    Owner = "ComputerVision"
+    msgID = 4
+    msgType = "float"
+class Lines(Enum):
+    Queue = "General"
+    Owner = "ComputerVision" 
+    msgID = 5
+    msgType = "int"
+    
+class Intersection(Enum):
+    Queue = "General"
+    Owner = "ComputerVision" 
+    msgID = 6
+    msgType = "str"
+### It will have this format: {"WarningName":"name1", "WarningID": 1}
+######################    From ObjectDetection  ###########################
+
+class CV_ObjectsDetected(Enum):
+    Queue = "General"
+    Owner = "ObjectDetection"
+    msgID = 1
+    msgType = "list"
 
 ######################    From DecisionMaker  ###########################
 class SetSpeed(Enum):

@@ -26,28 +26,28 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
+import datetime
+import os
 import cv2
 import threading
 import base64
 import picamera2
 import time
 
-from src.ComputerVision.LaneDetection.lane_detection import LaneDetectionProcessor
-# from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 from src.utils.messages.allMessages import (
-    CVCamera,
     mainCamera,
     serialCamera,
     Recording,
     Record,
     Brightness,
     Contrast,
-    CV_ObjectDetection_Type
+    DrivingMode
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.templates.threadwithstop import ThreadWithStop
-
+from src.decision.decisionMaker.stateMachine import StateMachine
+from src.utils.helpers import encode_image
 
 class threadCamera(ThreadWithStop):
     """Thread which will handle camera functionalities.\n
@@ -63,22 +63,28 @@ class threadCamera(ThreadWithStop):
         self.queuesList = queuesList
         self.logger = logger
         self.debugger = debugger
-        self.frame_rate = 5
+        self.frame_rate = 30  # antes 5
         self.recording = False
 
         self.video_writer = ""
 
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
-        self.serialCameraSender = messageHandlerSender(self.queuesList, CVCamera)
-        # self.ObjectDetection_Type = messageHandlerSender(self.queuesList, CV_ObjectDetection_Type)
-        #self.processor = LaneDetectionProcessor(type="simulator")
-        # self.processor = ObjectDetectionProcessor()
+
+        self.serialCameraSender = messageHandlerSender(self.queuesList, serialCamera)
+        self.frame_count = 0
+        self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
+        self.screenshot_dir = f"screenshots/{self.timestamp}"
+        if not os.path.exists(self.screenshot_dir):
+            os.makedirs(self.screenshot_dir)
 
         self.subscribe()
         self._init_camera()
         self.Queue_Sending()
         self.Configs()
+
+        self.act_deviation = 0.
+        self.act_direction = "straight"
 
     def subscribe(self):
         """Subscribe function. In this function we make all the required subscribe to process gateway"""
@@ -86,6 +92,8 @@ class threadCamera(ThreadWithStop):
         self.recordSubscriber = messageHandlerSubscriber(self.queuesList, Record, "lastOnly", True)
         self.brightnessSubscriber = messageHandlerSubscriber(self.queuesList, Brightness, "lastOnly", True)
         self.contrastSubscriber = messageHandlerSubscriber(self.queuesList, Contrast, "lastOnly", True)
+
+        self.drivingMode = messageHandlerSubscriber(self.queuesList, DrivingMode, "lastOnly", True)
         
 
     def Queue_Sending(self):
@@ -134,6 +142,9 @@ class threadCamera(ThreadWithStop):
 
         send = True
         while self._running:
+
+            #print(self.drivingMode)
+
             try:
                 recordRecv = self.recordSubscriber.receive()
                 if recordRecv is not None: 
@@ -157,23 +168,17 @@ class threadCamera(ThreadWithStop):
             if send:
                 mainRequest = self.camera.capture_array("main")
                 serialRequest = self.camera.capture_array("lores")  # Will capture an array that can be used by OpenCV library
-
+                
                 if self.recording == True:
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
-                out, valid_distance = self.processor.process_image(serialRequest)
 
-                # if not valid_distance:
-                #     self.ObjectDetection_Type.send("stop_signal")
-                # else:
-                #     self.ObjectDetection_Type.send("no_signal")
+                self.save_screenshot(serialRequest)
+                
+                mainEncodedImageData = encode_image(mainRequest)
+                serialEncodedImageData = encode_image(serialRequest)
 
-                _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
-                _, serialEncodedImg = cv2.imencode(".jpg", out)
- 
-                mainEncodedImageData = base64.b64encode(mainEncodedImg).decode("utf-8")
-                serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
 
                 self.mainCameraSender.send(mainEncodedImageData)
                 self.serialCameraSender.send(serialEncodedImageData)
@@ -193,8 +198,15 @@ class threadCamera(ThreadWithStop):
             buffer_count=1,
             queue=False,
             main={"format": "RGB888", "size": (2048, 1080)},
-            lores={"size": (640, 480)},
+            lores={"size": (320, 240)},
             encode="lores",
         )
         self.camera.configure(config)
         self.camera.start()
+
+    def save_screenshot(self,frame):
+        # Guardar screenshot cada 30 frames
+        if self.frame_count % 30 == 0:
+            screenshot_path = os.path.join(self.screenshot_dir, f"{self.timestamp}_{self.frame_count}.png")
+            cv2.imwrite(screenshot_path, frame)
+        self.frame_count += 1

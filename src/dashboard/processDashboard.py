@@ -73,9 +73,10 @@ class processDashboard(WorkerProcess):
 
         self.getNamesAndVals()
         # Remove the mainCamera and Semaphores message sender
-        self.messagesAndVals.pop("mainCamera")
+        self.messagesAndVals.pop("mainCamera")  #Camara dashboard
         self.messagesAndVals.pop("Semaphores")
         self.messagesAndVals.pop("serialCamera")
+        self.messagesAndVals.pop("Intersection")
 
         self.subscribe()
 

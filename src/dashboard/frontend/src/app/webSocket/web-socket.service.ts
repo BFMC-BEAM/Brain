@@ -52,6 +52,7 @@ export class WebSocketService {
     'BatteryLvl',
     'ResourceMonitor',
     'CVCamera',
+    'serialCamera',
     'Recording',
     'CurrentSpeed',
     'CurrentSteer',
