@@ -140,15 +140,10 @@ class StateMachine():
             IF_OBSTACLE_TOO_FAR: self.on_obstacle_too_far,
             IF_MOVING: self.on_car_moving,
             IF_STATIC: self.on_car_static,
-            CROSSWALK_SIGN_DETECTED: self.on_crosswalk_event,
-            TIMEOUT_CROSSWALK: self.on_timeout_crosswalk,
+            CROSSWALK_SIGN_DETECTED: self.on_crosswalk_sign_detected,
+            TIMEOUT_CROSSWALK: self.on_crosswalk_timeout,
             INTERSECTION_TRAFFIC_LIGHT_EVENT: self.on_waiting_for_green,
             INTERSECTION_STOP_EVENT: self.on_waiting_at_stopline,
-            JUNCTION_EVENT: self.on_intersection_navigation,
-            INTERSECTION_PRIORITY_EVENT: self.on_intersection_navigation,
-            ROUNDABOUT_EVENT: self.on_roundabout_navigation,
-            ALWAYS: self.on_always,
-            END_OF_LOCAL_PATH: self.on_end_of_local_path,
             SEMAPHORE_GREEN: self.on_semaphore_green,
             TIMEOUT_STOPLINE: self.on_timeout_stopline,
 
@@ -174,7 +169,7 @@ class StateMachine():
         # PARKING
         self.parking_start_time = time.time()  
         self.parking_step = 0  
-        self.parking_duration = [2, 1, 1, 1, 1]  
+        self.parking_duration = [3, 1, 2, 2, 2, 3]  
         self.parking_end_time = None
 
         # HIGHWAY
@@ -184,6 +179,7 @@ class StateMachine():
         self.stop_time = 3
         # CROSSWALK
         self.timeout_crosswalk = 6
+        self.in_crosswalk = False
 
         self.current_state = lane_following #start_state
 
@@ -193,6 +189,7 @@ class StateMachine():
         self.current_deviation = None
         self.objects_detected = None
         self.current_ultra_values = None
+
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
         """Cambia el estado basándose en el evento."""
@@ -218,7 +215,7 @@ class StateMachine():
 
             self.change_state(CONTINUE_LANE_FOLLOWING)
         
-        elif self.current_state == classifying_sign:
+        elif self.current_state == classifying_sign and objects_detected:
             for sign_name, valid_distance in objects_detected:
                 if sign_name == STOP_SIGN and valid_distance:
                     self.change_state(STOP_SIGN_DETECTED)
@@ -267,7 +264,7 @@ class StateMachine():
             else:
                 self.change_state(IN_HIGHWAY)
         
-        elif self.current_state == classifying_obstacle:
+        elif self.current_state == classifying_obstacle and objects_detected:
             for object_name, valid_distance in objects_detected:
                 if object_name == PEDESTRIAN and valid_distance:
                     self.change_state(OBSTACLE_PEDESTRIAN)
@@ -296,37 +293,55 @@ class StateMachine():
 
     def on_parking(self):
         self.parking_start_time = time.time()  
+        self.parking_step = 0 
+        self.a=False
+        self.b = False
+        self.c = False
+        self.d = False
     def try_parking(self): 
+        if self.a == False: 
+            self.parking_start_time = time.time()  
+            self.a = True
+
         current_time = time.time()  
         elapsed_time = current_time - self.parking_start_time 
 
         if self.parking_step == 0:  
-            self.current_speed = 100
-            self.current_steer = 0
+
+            self.current_speed = "200"
+            self.current_steer = "0"
             if elapsed_time >= self.parking_duration[0]:
                 self.parking_step += 1
                 self.parking_start_time = current_time  
-        elif self.parking_step == 1:  
-            self.current_speed = 0
-            self.current_steer = 240
+        elif self.parking.step == 1:
+            self.current_steer = "240"
             if elapsed_time >= self.parking_duration[1]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 2:  
-            self.current_speed = -100
-            self.current_steer = 240
+            self.current_speed = "-50"
             if elapsed_time >= self.parking_duration[2]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
-        elif self.parking_step == 3: 
-            self.current_speed = 100
-            self.current_steer = 120
+        elif self.parking_step == 3:  
+
+            self.current_speed = "-100"
+            self.current_steer = "0"
+            if elapsed_time >= self.parking_duration[2]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 3:
+            if self.d == False: 
+                print("ejecutando paso 4")
+                self.d = True 
+            self.current_speed = "-50"
+            self.current_steer = "-240"
             if elapsed_time >= self.parking_duration[3]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 4:
-            self.current_speed = 0
-            self.current_steer = 0
+            self.current_speed = "0"
+            self.current_steer = "0"
             if elapsed_time >= self.parking_duration[4]:
                 self.parking_step = 0  
                 self.parking_start_time = None 
@@ -360,8 +375,9 @@ class StateMachine():
         self.highway_end = False
         self.current_speed(300)
     def on_highway(self):
-        # revisa posicion actual, nodo actual y ve si cambia o no. al llegar al nodo final, levanta una bandera aunque ya deberia
+        # TODO:revisa posicion actual, nodo actual y ve si cambia o no. al llegar al nodo final, levanta una bandera aunque ya deberia
         # haber detectado la senal de fin de highway POSIBLENTE NO SEA NECESARIO CONSULTAR NODOS
+        # si da igual el tema de nodos, entonce esta funcion no sirve, cuando detecta, en on highway entry sign detected, aumenta velocidad, guardando la actual, y cuando detecta el fin, retoma la velocidad inicla
         if any(sign == HIGHWAY_END_SIGN and valid_distance for sign, valid_distance in self.objects_detected):
                 self.on_highway_end_sign_detected()
         pass
@@ -393,6 +409,9 @@ class StateMachine():
         self.crosswalk_speed = self.current_speed
         self.timeout_crosswalk = time.time()
         self.current_speed(50)
+        
+        # SOL A
+        self.in_crosswalk = True
     def on_crosswalk_waiting(self):
         current_time = time.time()  
         elapsed_time = current_time - self.timeout_crosswalk 
@@ -400,6 +419,10 @@ class StateMachine():
             self.on_crosswalk_timeout()
     def on_crosswalk_timeout(self):
         self.current_speed = self.crosswalk_speed
+
+
+        # SOL A
+        self.in_crosswalk = False
 
     def on_pedestrian_timeout(self): pass
     def on_car_overtaken(self): pass
@@ -410,14 +433,8 @@ class StateMachine():
     def on_obstacle_too_far(self): pass
     def on_car_moving(self): pass
     def on_car_static(self): pass
-    def on_crosswalk_event(self): pass
-    def on_timeout_crosswalk(self): pass
     def on_waiting_for_green(self): pass
     def on_waiting_at_stopline(self): pass
-    def on_intersection_navigation(self): pass
-    def on_roundabout_navigation(self): pass
-    def on_always(self): pass
-    def on_end_of_local_path(self): pass
     def on_timeout_stopline(self): pass
     def on_semaphore_green(self): pass
 '''
