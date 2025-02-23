@@ -1,3 +1,4 @@
+import time
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.templates.threadwithstop import ThreadWithStop
@@ -60,26 +61,32 @@ class threadDecisionMaker(ThreadWithStop):
 
             if curr_drivingMode == "auto":
                 self.current_deviation = self.subscribers["Deviation"].receive() or self.current_deviation
-                self.num_lines_detected = self.subscribers["Lines"].receive() or self.num_lines_detected
                 self.objects_detected = self.subscribers["CV_ObjectsDetected"].receive() or self.objects_detected
                 self.current_speed  = self.subscribers["CurrentSpeed"].receive() or self.current_speed
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
                 self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
                 target_speed, target_steer = self.state_machine.handle_events(
-                    self.current_deviation, self.num_lines_detected, self.objects_detected, self.current_speed, self.current_steer, self.direction, ultra_values
+                    self.current_deviation, self.objects_detected, self.current_speed, self.current_steer, self.direction, ultra_values
                 )
                 #print("recibo:", target_speed, target_steer)
 
                 if target_speed != self.current_speed:
                     self.speedSender.send(str(target_speed))
+                    #self.current_speed = target_speed
                 if target_steer != self.current_steer:
+                    print("recibo:", target_speed, target_steer)
+
                     #print("cambindo direccion")
                     self.steerSender.send(target_steer)
+                    self.current_steer = target_steer
 
             elif curr_drivingMode == "manual":
                 target_speed =  self.subscribers["SpeedMotor"].receive() 
                 target_steer =  self.subscribers["SteerMotor"].receive() 
+                if target_speed is not None:
+                    print("recibo:", target_speed, target_steer)
+
                 if target_speed is not None:
                     self.speedSender.send(str(target_speed))
                 if target_steer is not None:
@@ -87,6 +94,7 @@ class threadDecisionMaker(ThreadWithStop):
             # elif curr_drivingMode == "stop":
             #     self.speedSender.send("0")
             #     self.steerSender.send("0")
+            time.sleep(0.03)
 
             
 

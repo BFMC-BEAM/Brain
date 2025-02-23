@@ -1,6 +1,8 @@
 import time
-import networkx as nx # grafo
+import networkx as nx
+import numpy as np # grafo
 
+from src.decision.lineFollowing.purepursuitpd import Controller
 from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.utils.constants import (
@@ -55,7 +57,8 @@ class Routine():
 class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
-        self.control_system = ControlSystem()
+        self.control_system = Controller()
+        self.desired_speed = 0.1
         
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
@@ -178,13 +181,14 @@ class StateMachine():
         self.timeout_crosswalk = 6
         self.in_crosswalk = False
 
-        self.current_state = parking_state #start_state
+        self.current_state = lane_following #start_state
 
         self.current_speed = None
         self.current_steer = None
         self.current_direction = None
         self.current_deviation = None
         self.objects_detected = None
+        self.current_ultra_values = None
 
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
@@ -197,9 +201,8 @@ class StateMachine():
         else:
             print(f"No se puede cambiar al estado con el evento: {event} desde {self.current_state}")
     #===================== EVENT HANDLING =====================#
-    def handle_events(self, act_deviation, num_lines_detected, objects_detected, current_speed, current_steer, direction, ultra_values):
+    def handle_events(self, act_deviation, objects_detected, current_speed, current_steer, direction, ultra_values):
         self.current_deviation = act_deviation if act_deviation is not None else self.current_deviation
-        self.num_lines_detected = num_lines_detected if num_lines_detected is not None else self.num_lines_detected
         self.objects_detected = objects_detected if objects_detected is not None else self.objects_detected
         self.current_speed = current_speed if current_speed is not None else self.current_speed
         self.current_steer = current_steer if current_steer is not None else self.current_steer
@@ -350,13 +353,11 @@ class StateMachine():
         #end time setear en None y en handle events consultar esta variable
 
     def on_lane_following(self): 
-        self.current_steer = self.control_system.adjust_direction(self.current_deviation, self.current_direction)
-        
-        # SOL A
-        if self.in_crosswalk == True:
-            self.current_speed = "50"
-        else:
-            self.current_speed = "100"
+        speed, angle_ref = self.control_system.get_control(self.current_deviation, self.current_direction, 0, self.desired_speed)
+        angle_ref = np.rad2deg(angle_ref)
+        self.current_steer = f"{int((angle_ref + 3 )* 10)}"
+        self.current_speed = f"{int(speed * 1000)}"
+
 
     def on_stop_sign_detected(self):
         # TODO: revisar valor de stop que recibe el modulo

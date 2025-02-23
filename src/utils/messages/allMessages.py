@@ -273,7 +273,7 @@ class Direction(Enum):
     Queue = "Critical"
     Owner = "ComputerVision"
     msgID = 4
-    msgType = "str"
+    msgType = "float"
 class Lines(Enum):
     Queue = "General"
     Owner = "ComputerVision" 
