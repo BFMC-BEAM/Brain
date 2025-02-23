@@ -2,10 +2,14 @@ import cv2
 import base64
 import numpy as np
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (CVCamera, serialCamera)
+from src.utils.messages.allMessages import (
+    CVCamera,
+    CV_ObjectsDetected,
+    Intersection)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
+import time
 
 class threadObjectDetection(ThreadWithStop):
     """This thread handles ObjectDetection.
@@ -15,36 +19,51 @@ class threadObjectDetection(ThreadWithStop):
         debugging (bool, optional): A flag for debugging. Defaults to False.
     """
 
-    def __init__(self, queueList, logging, debugging=False):
+    def __init__(self, queueList, logging, debugging=False, yolo_model=None):
         self.queuesList = queueList
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
         self.subscribe()
         self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
-        self.processor = ObjectDetectionProcessor()
+        self.signals_detected = messageHandlerSender(self.queuesList, CV_ObjectsDetected)
+        self.processor = ObjectDetectionProcessor(yolo_model)
         super(threadObjectDetection, self).__init__()
+        self.start_time = time.time()
+        self.limit_time = 3
+        self.init_count_time = True
+
+        
+
 
     def run(self):
         while self._running:
-            image = self.subscribers["Images"].receive()
-            if image is not None:
-                if image.startswith("data:image"):
-                    image = image.split(",")[1]
+            # reads the queue that only sends information when the lineDetector detects an intersection
+            FrameCamera = self.subscribers["Intersection"].receive()
+            if FrameCamera is None:
+                continue
 
-                image_data = base64.b64decode(image)
-                np_array = np.frombuffer(image_data, dtype=np.uint8)
-                cv_image = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
-                
-                if cv_image is None:
-                    print("Error: cv2.imdecode failed.")
-                    continue
-                
-                out = self.processor.process_image(cv_image)
-                _, encoded_output = cv2.imencode(".jpg", out)
-                serialEncodedImageData = base64.b64encode(encoded_output).decode("utf-8")
-                self.image_sender.send(serialEncodedImageData)
+            # limit object detection to run at specific intervals
+            current_time = time.time()
+            if(current_time - self.start_time < self.limit_time):
+                continue
+            self.start_time = time.time()
+
+            decoded_image_data = base64.b64decode(FrameCamera)
+            nparr = np.frombuffer(decoded_image_data, np.uint8)
+            FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+            FrameCameraPro, signals = self.processor.process_image(FrameCamera)
+
+            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
+            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+            self.image_sender.send(serialEncodedImageData)
+            #TODO: checkear el envio de listas
+            self.signals_detected.send(signals)
+        
 
     def subscribe(self):
-        subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
-        self.subscribers["Images"] = subscriber
+        """Subscribes to the messages you are interested in"""
+        subscriber = messageHandlerSubscriber(self.queuesList, Intersection, "lastOnly", True)
+        self.subscribers["Intersection"] = subscriber
+ 

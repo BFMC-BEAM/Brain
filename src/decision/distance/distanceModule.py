@@ -11,10 +11,11 @@ class DistanceModule():
         #self.previous_speed = "0"
         
     def check_distance(self, ultraVals, currentSpeed, currentSteer):
+
         mult_distance = self.min_distance * self.get_multiplier(currentSpeed)
-        if ultraVals is not None:
-            if ultraVals["top"] < mult_distance and int(currentSpeed) > 0:
-                return ("0",currentSteer) #stop the vehicle if front distance is less than 30 cm
+        # if ultraVals is not None:
+        #     if ultraVals["top"] < mult_distance and int(currentSpeed) > 0:
+        #         return ("0",currentSteer) #stop the vehicle if front distance is less than 30 cm
             #elif ultraVals["bottom"] < self.min_distance and  int(currentSpeed) < 0:
                 # return ("0",currentSteer) commented until back ultra instalation
                 #pass
@@ -38,7 +39,7 @@ class DistanceModule():
         current_time = time.time()
         decidedSpeed = actualSpeed
 
-        if objectDetection == "stop_signal" and current_time > self.ignore_stop_signal_until and not self.start_stop_signal_logic:
+        if objectDetection == "STOP" and current_time > self.ignore_stop_signal_until and not self.start_stop_signal_logic:
             self.start_stop_signal_logic = True
             #self.previous_speed = decidedSpeed                          # save actualSpeed before stop
             self.delay_stop_signal = current_time + 3                   # stop for 3 seconds

@@ -52,6 +52,7 @@ export class WebSocketService {
     'BatteryLvl',
     'ResourceMonitor',
     'CVCamera',
+    'serialCamera',
     'Recording',
     'CurrentSpeed',
     'CurrentSteer',
@@ -60,7 +61,7 @@ export class WebSocketService {
   
  constructor() {
     this.webSocket = new Socket({
-    url: "http://192.168.76.132:5005",
+    url: "http://192.168.117.5:5005",
     options: {},
     });
 

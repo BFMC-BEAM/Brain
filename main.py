@@ -42,6 +42,7 @@
 # ===================================== GENERAL IMPORTS ==================================
 import sys
 import subprocess
+import os
 
 sys.path.append(".")
 from multiprocessing import Queue, Event
@@ -50,7 +51,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # ===================================== PROCESS IMPORTS ==================================
-
+from ultralytics import YOLO
 from src.gateway.processGateway import processGateway
 from src.dashboard.processDashboard import processDashboard
 from src.hardware.camera.processCamera import processCamera
@@ -73,15 +74,20 @@ queueList = {
 
 logging = logging.getLogger()
 
+yolo_path = "yolov5su_ncnn_model"
+if not os.path.exists(yolo_path):
+    model = YOLO("yolov5s.pt")
+    model.export(format="ncnn")  
+
 Dashboard = True
 Camera = True
 Semaphores = False
-TrafficCommunication = True
+TrafficCommunication = False
 SerialHandler = True
 
 # ------ New component flags starts here ------#
 DecisionMaker = True
-LaneDetection = False
+LaneDetection = True
 ObjectDetection = False
 # ------ New component flags ends here ------#
 
@@ -119,7 +125,7 @@ if TrafficCommunication:
 
 # Initializing serial connection NUCLEO - > PI
 if SerialHandler:
-    processSerialHandler = processSerialHandler(queueList, logging, debugging = False)
+    processSerialHandler = processSerialHandler(queueList, logging, debugging = True)
     allProcesses.append(processSerialHandler)
 
 # ------ New component runs starts here ------#
@@ -132,8 +138,9 @@ if LaneDetection:
     allProcesses.append(processLaneDetection)
 
 if ObjectDetection:
-    processObjectDetection = processObjectDetection(queueList, logging, debugging = False)
+    processObjectDetection = processObjectDetection(queueList, logging, debugging = False, yolo_path=yolo_path)
     allProcesses.append(processObjectDetection)
+
 # ------ New component runs ends here ------#
 
 # ===================================== START PROCESSES ==================================
