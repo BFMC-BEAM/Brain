@@ -125,7 +125,7 @@ if TrafficCommunication:
 
 # Initializing serial connection NUCLEO - > PI
 if SerialHandler:
-    processSerialHandler = processSerialHandler(queueList, logging, debugging = True)
+    processSerialHandler = processSerialHandler(queueList, logging, debugging = False)
     allProcesses.append(processSerialHandler)
 
 # ------ New component runs starts here ------#

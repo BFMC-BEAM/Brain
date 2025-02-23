@@ -11,7 +11,7 @@ from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 import time
 
-from utils.helpers import decode_image, encode_image
+from src.utils.helpers import decode_image, encode_image
 
 class threadObjectDetection(ThreadWithStop):
     """This thread handles ObjectDetection.

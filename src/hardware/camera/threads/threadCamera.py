@@ -171,6 +171,9 @@ class threadCamera(ThreadWithStop):
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
+                serialRequest = serialRequest[:, :320]  # Mantiene la altura y recorta el ancho
+                #print(serialRequest.shape)
+
                 self.save_screenshot(serialRequest)
                 
                 mainEncodedImageData = encode_image(mainRequest)

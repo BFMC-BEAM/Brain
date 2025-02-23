@@ -9,7 +9,7 @@ from src.ComputerVision.LaneDetection.lane_detection_onnx import LaneDetectionPr
 import time
 
 from src.utils.helpers import decode_image, encode_image
-AVG_FRAME_COUNT = 15
+AVG_FRAME_COUNT = 8
 class threadLaneDetection(ThreadWithStop):
     def __init__(self, queueList, logging, debugging=False):
         self.queuesList = queueList
@@ -34,9 +34,9 @@ class threadLaneDetection(ThreadWithStop):
             if FrameCamera is None:
                 continue
             
-            FrameCamera = encode_image(FrameCamera)
+            FrameCamera = decode_image(FrameCamera)
             e2, e3, _ = self.processor.process_image(FrameCamera)
-            self.image_sender.send(decode_image(FrameCamera))
+            self.image_sender.send(encode_image(FrameCamera))
 
             # Agregamos la desviación a la lista
             self.deviation_history.append(e2)
