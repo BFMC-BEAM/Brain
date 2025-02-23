@@ -356,9 +356,9 @@ class StateMachine():
     def on_lane_following(self): 
         speed, angle_ref = self.control_system.get_control(self.current_deviation, self.current_direction, 0, self.desired_speed)
         angle_ref = np.rad2deg(angle_ref)
-        #angle_ref = max(-17, min(angle_ref, 31))
-        #valor = int((angle_ref - 7) * 10)
-        self.current_steer = f"{int((angle_ref - 7 )* 10)}"
+        value = int((angle_ref - 7 )* 10)
+        value = max(-240, min(value, 240))
+        self.current_steer = f"{value}"
         self.current_speed = f"{int(speed * 1000)}"
 
 
