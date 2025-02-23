@@ -6,11 +6,14 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (
     CVCamera,
     CV_ObjectsDetected,
-    Intersection)
+    Intersection,
+    serialCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 import time
+
+from src.utils.helpers import decode_image, encode_image
 
 class threadStopLineDetection(ThreadWithStop):
     """This thread handles ObjectDetection.
@@ -40,7 +43,7 @@ class threadStopLineDetection(ThreadWithStop):
     def run(self):
         while self._running:
             # reads the queue that only sends information when the lineDetector detects an intersection
-            FrameCamera = self.subscribers["Intersection"].receive()
+            FrameCamera = self.subscribers["serialCamera"].receive()
             if FrameCamera is None:
                 continue
 
@@ -49,22 +52,15 @@ class threadStopLineDetection(ThreadWithStop):
             if(current_time - self.start_time < self.limit_time):
                 continue
             self.start_time = time.time()
-
-            decoded_image_data = base64.b64decode(FrameCamera)
-            nparr = np.frombuffer(decoded_image_data, np.uint8)
-            FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-
-            FrameCameraPro, signals = self.processor.process_image(FrameCamera)
-
-            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
-            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
-            self.image_sender.send(serialEncodedImageData)
-            #TODO: checkear el envio de listas
-            self.stopline_sender.send(signals)
+            FrameCamera = decode_image(FrameCamera)
+            dist, _,_ = self.processor.process_image(FrameCamera)
+            serialEncodedImageData = encode_image(FrameCamera)
+            if dist < 1.2:
+                self.stopline_sender.send(serialEncodedImageData)
         
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
-        subscriber = messageHandlerSubscriber(self.queuesList, Intersection, "lastOnly", True)
-        self.subscribers["Intersection"] = subscriber
+        subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "fifo", True)
+        self.subscribers["serialCamera"] = subscriber
  

@@ -26,6 +26,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 
+import datetime
+import os
 import cv2
 import threading
 import base64
@@ -44,6 +46,7 @@ from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.templates.threadwithstop import ThreadWithStop
 from src.decision.decisionMaker.stateMachine import StateMachine
+from src.utils.helpers import encode_image
 
 class threadCamera(ThreadWithStop):
     """Thread which will handle camera functionalities.\n
@@ -67,7 +70,11 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, serialCamera)
-        
+        self.frame_count = 0
+        self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
+        self.screenshot_dir = f"screenshots/{self.timestamp}"
+        if not os.path.exists(self.screenshot_dir):
+            os.makedirs(self.screenshot_dir)
 
         self.subscribe()
         self._init_camera()
@@ -159,20 +166,15 @@ class threadCamera(ThreadWithStop):
             if send:
                 mainRequest = self.camera.capture_array("main")
                 serialRequest = self.camera.capture_array("lores")  # Will capture an array that can be used by OpenCV library
-
+                
                 if self.recording == True:
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
+                self.save_screenshot(serialRequest)
                 
-
-
-                _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
-                _, serialEncodedImg = cv2.imencode(".jpg", serialRequest)#self.state_machine.frame)
- 
-                mainEncodedImageData = base64.b64encode(mainEncodedImg).decode("utf-8")
-                serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
-                #print("frame codificado",serialEncodedImageData)
+                mainEncodedImageData = encode_image(mainRequest)
+                serialEncodedImageData = encode_image(serialRequest)
 
 
                 self.mainCameraSender.send(mainEncodedImageData)
@@ -198,3 +200,10 @@ class threadCamera(ThreadWithStop):
         )
         self.camera.configure(config)
         self.camera.start()
+
+    def save_screenshot(self,frame):
+        # Guardar screenshot cada 30 frames
+        if self.frame_count % 30 == 0:
+            screenshot_path = os.path.join(self.screenshot_dir, f"{self.timestamp}_{self.frame_count}.png")
+            cv2.imwrite(screenshot_path, frame)
+        self.frame_count += 1

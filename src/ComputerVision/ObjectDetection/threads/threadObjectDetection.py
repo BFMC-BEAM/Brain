@@ -11,6 +11,8 @@ from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 import time
 
+from utils.helpers import decode_image, encode_image
+
 class threadObjectDetection(ThreadWithStop):
     """This thread handles ObjectDetection.
     Args:
@@ -49,14 +51,11 @@ class threadObjectDetection(ThreadWithStop):
                 continue
             self.start_time = time.time()
 
-            decoded_image_data = base64.b64decode(FrameCamera)
-            nparr = np.frombuffer(decoded_image_data, np.uint8)
-            FrameCamera = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            FrameCamera = decode_image(FrameCamera)
 
             FrameCameraPro, signals = self.processor.process_image(FrameCamera)
 
-            _, serialEncodedImg = cv2.imencode(".jpg", FrameCameraPro)
-            serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
+            serialEncodedImageData = encode_image(FrameCameraPro)
             self.image_sender.send(serialEncodedImageData)
             #TODO: checkear el envio de listas
             self.signals_detected.send(signals)

@@ -21,7 +21,6 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         
     def process_image(self, frame):
         self.last_frame = frame
-        self.preprocess(frame)
         start_time = time()
         blob = self.preprocess(frame)
         self.lane_keeper.setInput(blob)

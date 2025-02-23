@@ -3,7 +3,7 @@ import numpy as np
 import cv2 as cv
 from os.path import join, dirname, realpath
 
-from ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
+from src.ComputerVision.LaneDetection.image_processor_interface import ImageProcessorInterface
 
 this_dir = dirname(realpath(__file__))
 IMG_SIZE = (32,32) 
