@@ -59,7 +59,7 @@ class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
         self.control_system = Controller()
-        self.desired_speed = 0.3
+        self.desired_speed = 0.4
         
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
@@ -356,7 +356,9 @@ class StateMachine():
     def on_lane_following(self): 
         speed, angle_ref = self.control_system.get_control(self.current_deviation, self.current_direction, 0, self.desired_speed)
         angle_ref = np.rad2deg(angle_ref)
-        self.current_steer = f"{int((angle_ref - 6 )* 10)}"
+        #angle_ref = max(-17, min(angle_ref, 31))
+        #valor = int((angle_ref - 7) * 10)
+        self.current_steer = f"{int((angle_ref - 7 )* 10)}"
         self.current_speed = f"{int(speed * 1000)}"
 
 
