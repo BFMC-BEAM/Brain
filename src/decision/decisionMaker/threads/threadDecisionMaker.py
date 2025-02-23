@@ -56,6 +56,7 @@ class threadDecisionMaker(ThreadWithStop):
         print("arranca")
 
         while self._running:
+
             curr_drivingMode = self.subscribers["DrivingMode"].receive() or self.curr_drivingMode
             self.curr_drivingMode = curr_drivingMode
 
