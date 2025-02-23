@@ -46,9 +46,8 @@ from src.utils.messages.allMessages import (
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.templates.threadwithstop import ThreadWithStop
-from src.decision.decisionMaker.stateMachine import StateMachine
 from src.utils.helpers import encode_image
-
+TAKE_SCREENSHOTS = False
 class threadCamera(ThreadWithStop):
     """Thread which will handle camera functionalities.\n
     Args:
@@ -75,7 +74,8 @@ class threadCamera(ThreadWithStop):
         self.frame_count = 0
         self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
         self.screenshot_dir = f"screenshots/{self.timestamp}"
-        if not os.path.exists(self.screenshot_dir):
+
+        if TAKE_SCREENSHOTS and not os.path.exists(self.screenshot_dir):
             os.makedirs(self.screenshot_dir)
 
         self.subscribe()
@@ -175,8 +175,8 @@ class threadCamera(ThreadWithStop):
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
                 serialRequest = serialRequest[:, :320]  # Mantiene la altura y recorta el ancho
                 #print(serialRequest.shape)
-
-                self.save_screenshot(serialRequest)
+                if TAKE_SCREENSHOTS:
+                    self.save_screenshot(serialRequest)
                 
                 mainEncodedImageData = encode_image(mainRequest)
                 serialEncodedImageData = encode_image(serialRequest)
@@ -208,7 +208,7 @@ class threadCamera(ThreadWithStop):
 
     def save_screenshot(self,frame):
         # Guardar screenshot cada 30 frames
-        if self.frame_count % 30 == 0:
+        if self.frame_count % 10 == 0:
             screenshot_path = os.path.join(self.screenshot_dir, f"{self.timestamp}_{self.frame_count}.png")
             cv2.imwrite(screenshot_path, frame)
         self.frame_count += 1
