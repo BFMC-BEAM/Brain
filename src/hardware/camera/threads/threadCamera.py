@@ -33,6 +33,7 @@ import threading
 import base64
 import picamera2
 import time
+
 from src.utils.messages.allMessages import (
     mainCamera,
     serialCamera,
@@ -69,6 +70,7 @@ class threadCamera(ThreadWithStop):
 
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
+
         self.serialCameraSender = messageHandlerSender(self.queuesList, serialCamera)
         self.frame_count = 0
         self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
@@ -171,6 +173,7 @@ class threadCamera(ThreadWithStop):
                     self.video_writer.write(mainRequest)
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
+
                 self.save_screenshot(serialRequest)
                 
                 mainEncodedImageData = encode_image(mainRequest)
