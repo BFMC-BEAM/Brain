@@ -9,7 +9,8 @@ from src.utils.constants import (
     waiting_for_pedestrian, overtaking_moving_car, overtaking_static_car, avoiding_roadblock,
     classifying_obstacle, tailing_car, approaching_stop_line, crosswalk_navigation,
     roundabout_navigation, tracking_local_path, intersection_navigation, waiting_at_stopline,
-    waiting_for_green, highway_state, crosswalk_state,
+    waiting_for_green, highway_state, crosswalk_state,priority_state, traffic_light_state,
+    red_state, yellow_state, stopline_state, pedestrian_crossing, continue_line,
 
     #Events
     ROADMAP_LOADED, OBSTACLE_DISTANCE_THRESHOLD, SIGN_DISTANCE_THRESHOLD, END_EVENT,
@@ -21,8 +22,10 @@ from src.utils.constants import (
     ALWAYS, END_OF_LOCAL_PATH, TIMEOUT_STOPLINE, SEMAPHORE_GREEN, WAITING_STOP,HIGHWAY_ENTRY_SIGN_DETECTED,
     HIGHWAY_END_SIGN_DETECTED, IN_HIGHWAY, ONE_WAY_SIGN_DETECTED, ROUNDABOUT_SIGN_DETECTED,
     NO_ENTRY_SIGN_DETECTED, PEDESTRIAN_DETECTED, CAR_DETECTED, ROADBLOCK_DETECTED,
-    TRACKING_NODE, FINAL_NODE_REACHED, WAITING_CROSSWALK, CROSSWALK_TIMEOUT,
-    
+    TRACKING_NODE, FINAL_NODE_REACHED, WAITING_CROSSWALK, CROSSWALK_TIMEOUT, PRIORITY_INTERSECTION,
+    RED_LIGHT_DETECTED, YELLOW_LIGHT_DETECTED, WAITING_RED_LIGHT, RED_LIGHT_FINISHED, WAITING_YELLOW_LIGHT, YELLOW_LIGHT_FINISHED,
+    GREEN_LIGHT_DETECTED, WAITING_STOPLINE, WAITING_PEDESTRIAN, PEDESTRIAN_CROSSED, TRY_AVOID_ROADBLOCK,
+    IF_CONTINUE_LINE, WAITING_OBSTACLE, OBSTACLE_GONE,
     # Signs
     STOP_SIGN, PARKING_SIGN, CROSSWALK_SIGN, PRIORITY_SIGN, HIGHWAY_ENTRY_SIGN, PRIORITY_SIGN_DETECTED,
     HIGHWAY_END_SIGN, ONE_WAY_SIGN, ROUNDABOUT_SIGN, NO_ENTRY_SIGN,
@@ -61,65 +64,94 @@ class StateMachine():
             start_state: {ROADMAP_LOADED: lane_following},
             lane_following: {
                 OBSTACLE_DISTANCE_THRESHOLD: classifying_obstacle,
+                STOP_LINE_APPROACH_DISTANCE_THRESHOLD: approaching_stop_line,
                 SIGN_DISTANCE_THRESHOLD: classifying_sign,
                 END_EVENT: end_state,
-                STOP_LINE_APPROACH_DISTANCE_THRESHOLD: approaching_stop_line,
                 CONTINUE_LANE_FOLLOWING: lane_following,
             },
             classifying_sign: {
+                PRIORITY_SIGN_DETECTED: priority_state,
                 STOP_SIGN_DETECTED: stop_state,
                 PARKING_SIGN_DETECTED: parking_state,
                 HIGHWAY_ENTRY_SIGN_DETECTED: highway_state,
+                CROSSWALK_SIGN_DETECTED: crosswalk_state,
                 ONE_WAY_SIGN_DETECTED: tracking_local_path,
                 ROUNDABOUT_SIGN_DETECTED: tracking_local_path,
                 NO_ENTRY_SIGN_DETECTED: tracking_local_path,
-                CROSSWALK_SIGN_DETECTED: crosswalk_state,
-
+            },
+            priority_state: {
+                PRIORITY_INTERSECTION: approaching_stop_line,
             },
             stop_state: {
                 WAITING_STOP: stop_state,
                 TIMEOUT_STOP: lane_following
             },
-            highway_state: {
-                IN_HIGHWAY: highway_state,
-                HIGHWAY_END_SIGN_DETECTED: lane_following,
-            },
             parking_state: {
                 PARKING_COMPLETED: lane_following, 
                 TRY_PARKING: parking_state
+            },
+            highway_state: {
+                IN_HIGHWAY: highway_state,
+                HIGHWAY_END_SIGN_DETECTED: lane_following,
             },
             crosswalk_state: {
                 WAITING_CROSSWALK: crosswalk_state,
                 CROSSWALK_TIMEOUT: lane_following, 
             },
-            
-            waiting_for_pedestrian: {PEDESTRIAN_TIMEOUT: lane_following},
-            overtaking_moving_car: {CAR_OVERTAKEN: lane_following},
-            overtaking_static_car: {CAR_OVERTAKEN: lane_following},
-            avoiding_roadblock: {ROADBLOCK_AVOIDED: lane_following},
-            classifying_obstacle: {
-                OBSTACLE_PEDESTRIAN: waiting_for_pedestrian,
-                OBSTACLE_CAR: tailing_car,
-                OBSTACLE_ROADBLOCK: avoiding_roadblock,
+            traffic_light_state: {
+                RED_LIGHT_DETECTED: red_state,
+                YELLOW_LIGHT_DETECTED: yellow_state,
+                GREEN_LIGHT_DETECTED: lane_following
             },
-            tailing_car: {
-                IF_OBSTACLE_TOO_FAR: lane_following,
-                IF_MOVING: overtaking_moving_car,
-                IF_STATIC: overtaking_static_car,
+            red_state: {
+                WAITING_RED_LIGHT: red_state,
+                RED_LIGHT_FINISHED: traffic_light_state,
             },
-            approaching_stop_line: {
-                INTERSECTION_TRAFFIC_LIGHT_EVENT: waiting_for_green,
-                INTERSECTION_STOP_EVENT: waiting_at_stopline,
+            yellow_state: {
+                WAITING_YELLOW_LIGHT: yellow_state,
+                YELLOW_LIGHT_FINISHED: traffic_light_state,
             },
-            crosswalk_navigation: {TIMEOUT_CROSSWALK: lane_following},
-            roundabout_navigation: {ALWAYS: tracking_local_path},
             tracking_local_path: {
                 TRACKING_NODE: tracking_local_path,
-                FINAL_NODE_REACHED: lane_following
-                },
-            intersection_navigation: {ALWAYS: tracking_local_path},
-            waiting_at_stopline: {TIMEOUT_STOPLINE: intersection_navigation},
-            waiting_for_green: {SEMAPHORE_GREEN: intersection_navigation}
+                FINAL_NODE_REACHED: lane_following,
+            },
+            approaching_stop_line: {
+                INTERSECTION_STOP_EVENT: stopline_state,
+                INTERSECTION_PRIORITY_EVENT: tracking_local_path,
+            },
+            stopline_state: {
+                WAITING_STOPLINE: stopline_state,
+                TIMEOUT_STOPLINE: tracking_local_path,
+            },
+            classifying_obstacle: {
+                PEDESTRIAN_DETECTED: pedestrian_crossing,
+                ROADBLOCK_DETECTED: avoiding_roadblock,
+                CAR_DETECTED: tailing_car,
+            },
+            pedestrian_crossing: {
+                WAITING_PEDESTRIAN: pedestrian_crossing,
+                PEDESTRIAN_CROSSED: lane_following,
+            },
+            avoiding_roadblock: {
+                TRY_AVOID_ROADBLOCK: avoiding_roadblock,
+                PEDESTRIAN_CROSSED: lane_following,
+                IF_CONTINUE_LINE: continue_line,
+            },
+            continue_line: {
+                WAITING_OBSTACLE: continue_line,
+                OBSTACLE_GONE: lane_following,
+            },
+            tailing_car: {
+                IF_CONTINUE_LINE: continue_line,
+                IF_STATIC: overtaking_static_car,
+                IF_MOVING: overtaking_moving_car,
+            },
+            overtaking_static_car: {
+                CAR_OVERTAKEN: lane_following
+            },
+            overtaking_moving_car: {
+                CAR_OVERTAKEN: lane_following
+            },
         }
         
         self.event_methods = {
@@ -296,47 +328,52 @@ class StateMachine():
         self.c = False
         self.d = False
     def try_parking(self): 
-        if self.a == False: 
-            self.parking_start_time = time.time()  
-            self.a = True
-
         current_time = time.time()  
         elapsed_time = current_time - self.parking_start_time 
 
         if self.parking_step == 0:  
-
             self.current_speed = "200"
             self.current_steer = "0"
             if elapsed_time >= self.parking_duration[0]:
                 self.parking_step += 1
                 self.parking_start_time = current_time  
-        elif self.parking.step == 1:
+        elif self.parking_step == 1:  
+            self.current_speed = "0"
             self.current_steer = "240"
             if elapsed_time >= self.parking_duration[1]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 2:  
-            self.current_speed = "-50"
+            self.current_speed = "-100"
+            self.current_steer = "240"
             if elapsed_time >= self.parking_duration[2]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
-        elif self.parking_step == 3:  
-
+        elif self.parking_step == 3: 
             self.current_speed = "-100"
             self.current_steer = "0"
-            if elapsed_time >= self.parking_duration[2]:
+            if elapsed_time >= self.parking_duration[3]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
-        elif self.parking_step == 3:
-            if self.d == False: 
-                print("ejecutando paso 4")
-                self.d = True 
-            self.current_speed = "-50"
+        elif self.parking_step == 4: 
+            self.current_speed = "-100"
+            self.current_steer = "0"
+            if elapsed_time >= self.parking_duration[3]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 5: 
+            self.current_speed = "0"
             self.current_steer = "-240"
             if elapsed_time >= self.parking_duration[3]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
-        elif self.parking_step == 4:
+        elif self.parking_step == 6: 
+            self.current_speed = "-100"
+            self.current_steer = "-240"
+            if elapsed_time >= self.parking_duration[3]:
+                self.parking_step += 1
+                self.parking_start_time = current_time
+        elif self.parking_step == 7:
             self.current_speed = "0"
             self.current_steer = "0"
             if elapsed_time >= self.parking_duration[4]:
@@ -344,6 +381,7 @@ class StateMachine():
                 self.parking_start_time = None 
                 self.parking_end_time = current_time  
                 self.on_parking_completed()  
+
     def on_parking_completed(self): 
         print("Secuencia de estacionamiento completada.")
         self.parking_end_time = -1
