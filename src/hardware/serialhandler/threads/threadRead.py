@@ -160,9 +160,9 @@ class threadRead(ThreadWithStop):
                     "roll": splittedValue[0],
                     "pitch": splittedValue[1],
                     "yaw": splittedValue[2],
-                    "accelx": splittedValue[3],
-                    "accely": splittedValue[4],
-                    "accelz": splittedValue[5],
+                    "velx": splittedValue[3],
+                    "vely": splittedValue[4],
+                    "velz": splittedValue[5],
                 }
                 self.imuDataSender.send(str(data))
             else:

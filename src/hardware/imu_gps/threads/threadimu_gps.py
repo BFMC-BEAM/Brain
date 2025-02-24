@@ -36,9 +36,12 @@ class threadimu_gps(ThreadWithStop):
 
         self.imu_data = []
         self.curr_coordinates = {
-            "x": 4,
-            "y": 0.75,
-            "yaw": 3.14,
+            # "x": 4,
+            # "y": 0.75,
+            # "yaw": 3.14,
+            "x": 0,
+            "y": 0,
+            "yaw": 0,
         }
 
 
@@ -58,8 +61,8 @@ class threadimu_gps(ThreadWithStop):
                 last_time = current_time  # Actualizar el último tiempo
 
                 self.curr_coordinates = self.imu_gps.getGpsData(imuData, dt)    # Actualizar coordenadas usando el delta de tiempo dinámico
-                self.imu_gps_data.send(self.curr_coordinates)                   # Enviar las coordenadas
-                print("Current coordinates: ", self.curr_coordinates)
+                # self.imu_gps_data.send(self.curr_coordinates)                   # Enviar las coordenadas
+                # print("Current coordinates: ", self.curr_coordinates, imuData)
 
                 time.sleep(0.15)  # Pequeña pausa para no saturar el CPU
  
