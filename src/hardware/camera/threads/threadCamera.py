@@ -47,7 +47,7 @@ from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.helpers import encode_image
-TAKE_SCREENSHOTS = False
+TAKE_SCREENSHOTS = True
 class threadCamera(ThreadWithStop):
     """Thread which will handle camera functionalities.\n
     Args:
