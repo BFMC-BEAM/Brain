@@ -1,7 +1,7 @@
 import cv2
 import base64
 import numpy as np
-from ComputerVision.StopLineDetection.stopline_detection import StopLineDetectionProcessor
+from src.ComputerVision.StopLineDetection.stopline_detection import StopLineDetectionProcessor
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (
     CVCamera,
