@@ -37,11 +37,13 @@ from decision_maker.constants import (
     # Traffic light
     RED, YELLOW, GREEN
 )
+
 class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
         self.control_system = Controller()
-        self.desired_speed = 0
+        self.desired_speed = 0.3
+
         
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
@@ -507,6 +509,7 @@ class StateMachine():
         print("Secuencia de estacionamiento completada.")
         self.parking_end_time = -1
         #end time setear en None y en handle events consultar esta variable
+
 
     def on_highway_entry_sign_detected(self):
         self.highway_end = False

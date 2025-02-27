@@ -1,11 +1,11 @@
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (ImuData)
+from src.utils.messages.allMessages import (ImuData, ImuGPSData)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 
 from src.hardware.imu_gps.imu_gps import imu_gps
 import time
-import ast  # Para convertir string en diccionario
+
 ##########################
 # Initial coordinates    #
 # Paso de peatones       #
@@ -25,6 +25,9 @@ class threadimu_gps(ThreadWithStop):
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
+
+        self.imu_gps_data = messageHandlerSender(self.queuesList, ImuGPSData)
+
         self.subscribe()
         super(threadimu_gps, self).__init__()
         self._running = True
@@ -33,9 +36,12 @@ class threadimu_gps(ThreadWithStop):
 
         self.imu_data = []
         self.curr_coordinates = {
-            "x": 4,
-            "y": 0.75,
-            "yaw": 3.14,
+            # "x": 4,
+            # "y": 0.75,
+            # "yaw": 3.14,
+            "x": 0,
+            "y": 0,
+            "yaw": 0,
         }
 
 
@@ -54,23 +60,12 @@ class threadimu_gps(ThreadWithStop):
                 dt = current_time - last_time
                 last_time = current_time  # Actualizar el último tiempo
 
-                # Actualizar coordenadas usando el delta de tiempo dinámico
-                self.curr_coordinates = self.imu_gps.getGpsData(imuData, dt)
-                print("Current coordinates: ", self.curr_coordinates)
+                self.curr_coordinates = self.imu_gps.getGpsData(imuData, dt)    # Actualizar coordenadas usando el delta de tiempo dinámico
+                # self.imu_gps_data.send(self.curr_coordinates)                   # Enviar las coordenadas
+                # print("Current coordinates: ", self.curr_coordinates, imuData)
 
                 time.sleep(0.15)  # Pequeña pausa para no saturar el CPU
-
-    
-    def check_distance(self, ultraVals, currentSpeed, currentSteer):
-            mult_distance = self.min_distance * self.get_multiplier(currentSpeed)
-            if ultraVals is not None:
-                if ultraVals["top"] < mult_distance and int(currentSpeed) > 0:
-                    return ("0",currentSteer) #stop the vehicle if front distance is less than 30 cm
-                #elif ultraVals["bottom"] < self.min_distance and  int(currentSpeed) < 0:
-                    # return ("0",currentSteer) commented until back ultra instalation
-                    #pass
-            return (currentSpeed,currentSteer)
-    
+ 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
         subscriber = messageHandlerSubscriber(self.queuesList, ImuData, "lastOnly", True)

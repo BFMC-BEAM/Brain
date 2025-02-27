@@ -306,3 +306,10 @@ class SetSteer(Enum):
     Owner = "DecisionMaker"
     msgID = 2
     msgType = "str"
+
+######################    From imu_gps  ###########################
+class ImuGPSData(Enum):
+    Queue = "General"
+    Owner = "threadimu_gps"
+    msgID = 1
+    msgType = "str"

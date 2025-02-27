@@ -2,7 +2,7 @@ if __name__ == "__main__":
     import sys
     sys.path.insert(0, "../../..")
 
-from ComputerVision.StopLineDetection.threads import threadStopLineDetection
+from src.ComputerVision.StopLineDetection.threads import threadStopLineDetection
 from src.templates.workerprocess import WorkerProcess
 from src.ComputerVision.ObjectDetection.threads.threadObjectDetection import threadObjectDetection
 

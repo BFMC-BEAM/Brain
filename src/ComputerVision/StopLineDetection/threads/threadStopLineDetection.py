@@ -1,7 +1,7 @@
 import cv2
 import base64
 import numpy as np
-from ComputerVision.StopLineDetection.stopline_detection import StopLineDetectionProcessor
+from src.ComputerVision.StopLineDetection.stopline_detection import StopLineDetectionProcessor
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (
     CVCamera,
@@ -55,8 +55,9 @@ class threadStopLineDetection(ThreadWithStop):
             FrameCamera = decode_image(FrameCamera)
             dist, _,_ = self.processor.process_image(FrameCamera)
             serialEncodedImageData = encode_image(FrameCamera)
-            if dist < 1.2:
-                self.stopline_sender.send(serialEncodedImageData)
+            if dist < 0.75:
+                #self.stopline_sender.send(serialEncodedImageData)
+                print(f"stopline detected at est {dist}")
         
 
     def subscribe(self):

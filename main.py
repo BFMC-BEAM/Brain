@@ -61,6 +61,7 @@ from src.data.TrafficCommunication.processTrafficCommunication import processTra
 from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
+from src.ComputerVision.StopLineDetection.processStopLineDetection import processStopLineDetection
 # from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
 from src.hardware.imu_gps.processimu_gps import processimu_gps
 # ======================================== SETTING UP ====================================
@@ -90,6 +91,7 @@ SerialHandler = True
 DecisionMaker = True
 LaneDetection = True
 ObjectDetection = False
+StopLineDetection = False
 ImuGPS = True
 # ------ New component flags ends here ------#
 
@@ -127,7 +129,7 @@ if TrafficCommunication:
 
 # Initializing serial connection NUCLEO - > PI
 if SerialHandler:
-    processSerialHandler = processSerialHandler(queueList, logging, debugging = True)
+    processSerialHandler = processSerialHandler(queueList, logging, debugging = False)
     allProcesses.append(processSerialHandler)
 
 # ------ New component runs starts here ------#
@@ -147,6 +149,9 @@ if ObjectDetection:
     processObjectDetection = processObjectDetection(queueList, logging, debugging = False, yolo_path=yolo_path)
     allProcesses.append(processObjectDetection)
 
+if StopLineDetection:
+    processStopLineDetection = processStopLineDetection(queueList, logging, debugging = False)
+    allProcesses.append(processStopLineDetection)
 
 # ------ New component runs ends here ------#
 

@@ -1,103 +1,113 @@
 import numpy as np
 import ast
-
-# Compensar la gravedad en el eje Z
-gravity = 9.81  # m/s²
-
+from pykalman import KalmanFilter
 
 class imu_gps():
-    def __init__(self, buffer_size=30):
+    def __init__(self, buffer_size=5):
         self.x = 0
         self.y = 0
         self.z = 0
 
         self.buffer_size = buffer_size
-        self.accel_buffer_x = np.zeros(buffer_size)
-        self.accel_buffer_y = np.zeros(buffer_size)
-        self.accel_buffer_z = np.zeros(buffer_size)
+        self.vel_buffer_x = np.zeros(buffer_size)
+        self.vel_buffer_y = np.zeros(buffer_size)
         self.buffer_index = 0
 
-        # Parámetros del filtro de Kalman
-        self.estimate_x = 0
-        self.estimate_y = 0
-        self.estimate_z = 0
-        self.error_estimate = 1  # Incertidumbre inicial
-        self.error_measurement = 1  # Varianza de la medición
-        self.kalman_gain = 0.5  # Ganancia inicial
+        # Variables para manejar el yaw acumulado
+        self.last_yaw = None
+        self.total_yaw = 0  # Rotación acumulada en grados
 
+        self.kf_x = KalmanFilter(
+            transition_matrices=[[1, 1], [0, 1]],  # Modelo de velocidad constante
+            observation_matrices=[[1, 0]],         # Observamos solo la velocidad
+            initial_state_mean=[0, 0],             # Estado inicial: [posición, velocidad]
+            initial_state_covariance=[[0.1, 0.0], [0.0, 0.1]],  # Incertidumbre inicial
+            observation_covariance=[[1.0]],        # Confianza en las mediciones
+            transition_covariance=[[0.001, 0.0], [0.0, 0.001]]  # Suavizado
+        )
+
+        self.kf_y = KalmanFilter(
+            transition_matrices=[[1, 1], [0, 1]],  # Modelo de velocidad constante
+            observation_matrices=[[1, 0]],         # Observamos solo la velocidad
+            initial_state_mean=[0, 0],             # Estado inicial: [posición, velocidad]
+            initial_state_covariance=[[0.1, 0.0], [0.0, 0.1]],  # Incertidumbre inicial
+            observation_covariance=[[1.0]],        # Confianza en las mediciones
+            transition_covariance=[[0.001, 0.0], [0.0, 0.001]]  # Suavizado
+        )
+
+        self.state_mean_x = np.array([0, 0])
+        self.state_cov_x = np.eye(2)
+        self.state_mean_y = np.array([0, 0])
+        self.state_cov_y = np.eye(2)
 
     def setInitialConditions(self, initialData):
         self.x = initialData.get('x', 0)
         self.y = initialData.get('y', 0)
         self.yaw = initialData.get('yaw', 0)
 
+    # angle unwrapping
+    def update_yaw(self, raw_yaw):
+        yaw = float(raw_yaw)
+
+        if self.last_yaw is not None:
+            delta = yaw - self.last_yaw
+
+            # Detectar wrap-around
+            if delta > 30:
+                delta -= 60
+            elif delta < -30:
+                delta += 60
+
+            self.total_yaw += delta  # Acumular la rotación total
+
+        self.last_yaw = yaw
+        return (self.total_yaw % 360)
+
     def getGpsData(self, imuData, delta_time):
-        """Integración doble con ajuste de yaw."""
-        imuData = ast.literal_eval(imuData)  # Convierte solo si es válido
-        roll = float(imuData['roll'])
-        pitch = float(imuData['pitch'])
-        yaw = float(imuData['yaw'])
-        accelX = float(imuData['accelx'])
-        accelY = float(imuData['accely'])
-        accelZ = float(imuData['accelz'])
+        imuData = ast.literal_eval(imuData)
 
-        # Compensación de gravedad
-        gravity_comp_x = np.sin(pitch) * 9.81
-        gravity_comp_y = -np.sin(roll) * 9.81
-        gravity_comp_z = np.cos(pitch) * np.cos(roll) * 9.81
+        # Actualizar yaw acumulado
+        yaw_degrees = self.update_yaw(imuData['yaw'])
+        yaw = np.radians(yaw_degrees)  # Convertir a radianes
+        yaw = (yaw + np.pi) % (2 * np.pi) - np.pi  # Normalizar el ángulo al rango [-pi, pi]
+
+        # Velocidades
+        velX = float(imuData['velx'])
+        velY = float(imuData['vely'])
+
+        # Actualizar los buffers de velocidad (buffer circular)
+        self.vel_buffer_x[self.buffer_index] = velX
+        self.vel_buffer_y[self.buffer_index] = velY
         
-        # Aplicar filtro de Kalman a cada eje
-        self.estimate_x, self.error_estimate, self.kalman_gain = self.kalman_filter(
-            accelX - gravity_comp_x, self.estimate_x, self.error_estimate, self.error_measurement, self.kalman_gain
-        )
-        self.estimate_y, self.error_estimate, self.kalman_gain = self.kalman_filter(
-            accelY - gravity_comp_y, self.estimate_y, self.error_estimate, self.error_measurement, self.kalman_gain
-        )
-        self.estimate_z, self.error_estimate, self.kalman_gain = self.kalman_filter(
-            accelZ - gravity_comp_z, self.estimate_z, self.error_estimate, self.error_measurement, self.kalman_gain
-        )
-        
-        # Ajustar las aceleraciones con el ángulo de yaw
-        adjusted_accelX = accelX * np.cos(yaw) - accelY * np.sin(yaw)
-        adjusted_accelY = accelX * np.sin(yaw) + accelY * np.cos(yaw)
-        # adjusted_accelZ = accelZ - gravity
+        # Actualizar el índice de manera circular
+        self.buffer_index = (self.buffer_index + 1) % self.buffer_size
 
-        # Insertar datos en el buffer de manera circular
-        self.accel_buffer_x[self.buffer_index % self.buffer_size] = adjusted_accelX
-        self.accel_buffer_y[self.buffer_index % self.buffer_size] = adjusted_accelY
-        # self.accel_buffer_z[self.buffer_index % self.buffer_size] = adjusted_accelZ  # No se ajusta el eje Z con yaw
-        self.buffer_index += 1
+        # Calcular el promedio de las velocidades almacenadas en el buffer
+        adjusted_velX = np.mean(self.vel_buffer_x)
+        adjusted_velY = np.mean(self.vel_buffer_y)
 
-        # Si el buffer está lleno, realizar integración doble
-        if self.buffer_index >= self.buffer_size:
-            # Primer integración: velocidad
-            vel_x = np.cumsum(self.accel_buffer_x) * delta_time
-            vel_y = np.cumsum(self.accel_buffer_y) * delta_time
-            # vel_z = np.cumsum(self.accel_buffer_z) * delta_time
+        # # Aplicar el filtro de Kalman a las velocidades
+        # self.state_mean_x, self.state_cov_x = self.kf_x.filter_update(
+        #     self.state_mean_x, self.state_cov_x, observation=adjusted_velX
+        # )
+        # self.state_mean_y, self.state_cov_y = self.kf_y.filter_update(
+        #     self.state_mean_y, self.state_cov_y, observation=adjusted_velY
+        # )
 
-            # # Segunda integración: posición
-            pos_x = np.cumsum(vel_x) * delta_time
-            pos_y = np.cumsum(vel_y) * delta_time
-            # pos_z = np.cumsum(vel_z) * delta_time
+        # # Obtener las velocidades filtradas
+        # filtered_velX = self.state_mean_x[0]
+        # filtered_velY = self.state_mean_y[0]
 
-            # Actualizar posición con el último valor
-            self.x -= pos_y[-1]/self.buffer_size
-            self.y += pos_x[-1]/self.buffer_size
-            # self.z += pos_z[-1]/self.buffer_size
-        
+        # Ajuste por yaw acumulado
+        delta_d = adjusted_velY * delta_time
+
+        # Actualizar posición usando las velocidades filtradas
+        self.x += delta_d * np.sin(yaw)
+        self.y += delta_d * np.cos(yaw)
+
+        print(f"x: {self.x:.3f} y: {self.y:.3f} \t|\t yaw: {yaw:.3f} \t|\t velx: {adjusted_velX:.3f}, vely: {adjusted_velY:.3f}")
+
         return {
             "x": self.x,
             "y": self.y,
-            # "z": self.z
         }
-
-    def kalman_filter(self, measurement, estimate, error_estimate, error_measurement, kalman_gain):
-        # Predicción
-        estimate = estimate  # Asumimos que no hay cambio en el estado previo
-
-        # Actualización
-        kalman_gain = error_estimate / (error_estimate + error_measurement)
-        estimate = estimate + kalman_gain * (measurement - estimate)
-        error_estimate = (1 - kalman_gain) * error_estimate
-
-        return estimate, error_estimate, kalman_gain
