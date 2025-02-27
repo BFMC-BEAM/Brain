@@ -177,6 +177,7 @@ class threadCamera(ThreadWithStop):
                 #print(serialRequest.shape)
                 if TAKE_SCREENSHOTS:
                     self.save_screenshot(serialRequest)
+
                 
                 mainEncodedImageData = encode_image(mainRequest)
                 serialEncodedImageData = encode_image(serialRequest)
