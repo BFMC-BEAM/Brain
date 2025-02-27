@@ -67,9 +67,15 @@ class threadDecisionMaker(ThreadWithStop):
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
                 self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
+                signs_detected = []
+                obstacles_detected = []
+                ultra_values = 0
+                stopline_valid_distance = 0
+
                 target_speed, target_steer = self.state_machine.handle_events(
-                    self.current_deviation, self.objects_detected, self.current_speed, self.current_steer, self.direction, ultra_values
+                    self.current_deviation, self.current_direction, 0, self.current_speed, signs_detected, obstacles_detected, stopline_valid_distance, ultra_values
                 )
+
                 #print("recibo:", target_speed, target_steer)
 
                 if target_speed != self.current_speed:
