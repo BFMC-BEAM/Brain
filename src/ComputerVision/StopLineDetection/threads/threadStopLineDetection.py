@@ -55,8 +55,9 @@ class threadStopLineDetection(ThreadWithStop):
             FrameCamera = decode_image(FrameCamera)
             dist, _,_ = self.processor.process_image(FrameCamera)
             serialEncodedImageData = encode_image(FrameCamera)
-            if dist < 1.2:
-                self.stopline_sender.send(serialEncodedImageData)
+            if dist < 0.75:
+                #self.stopline_sender.send(serialEncodedImageData)
+                print(f"stopline detected at est {dist}")
         
 
     def subscribe(self):
