@@ -92,7 +92,7 @@ DecisionMaker = True
 LaneDetection = True
 ObjectDetection = False
 StopLineDetection = False
-ImuGPS = True
+ImuGPS = False
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================

@@ -2,10 +2,9 @@ import time
 import networkx as nx
 import numpy as np # grafo
 
-from decision_maker.distanceModule import DistanceModule
-from nodes_following.controller_onnx import Controller
-from nodes_following.controller_onnx import Controller
-from decision_maker.constants import (
+from src.decision.distance.distanceModule import DistanceModule
+from src.decision.lineFollowing.purepursuitpd import Controller
+from src.utils.constants import (
     #States
     start_state, end_state, lane_following, classifying_signal, stop_state, parking_state,
     overtaking_moving_car, overtaking_static_car, avoiding_roadblock,
@@ -42,7 +41,7 @@ class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
         self.control_system = Controller()
-        self.desired_speed = 0.3
+        self.desired_speed = 100
 
         
         self.state_transitions = {
@@ -426,8 +425,8 @@ class StateMachine():
         speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed)
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer((angle_ref - 6 ) * 10)
-        self.set_speed(int(speed * 1000))
-
+        self.set_speed(speed)
+   
     
     def on_sign_distance_threshold(self):
         self.current_sign = next((sign for sign, valid_distance in self.signs_detected if valid_distance), None)
@@ -590,19 +589,17 @@ class StateMachine():
         self.priority = True
     def on_stop_line_approach_distance_threshold(self):
         self.stop_line = True
-        self.desired_speed = 0.1
+        self.set_speed(100)
      #TODO: asumo que espera por tiempo y despues revisa que no hay vehiculos para avanzar
     def on_intersection_priority(self):
         pass
     def on_intersection_stop(self):
         self.init_stopline_time = time.time()
-        print ("car", self.init_stopline_time)
         self.set_speed(0)
         self.speed_blocked = True
     def on_stopline_waiting(self):
         current_time = time.time()  
         elapsed_time = current_time - self.init_stopline_time
-        print("tiempos: ", current_time, elapsed_time, self.init_stopline_time) 
         if elapsed_time >= self.stop_time: #and any(sign == CAR and valid_distance for sign, valid_distance in self.signs_detected):
                 self.stop_line = False
     def on_stopline_timeout(self):
@@ -653,10 +650,10 @@ class StateMachine():
 
     # TODO: ademas en el amarillo, crosswalk, highway hay que llamar al modulo de control pero sin tener en cuenta la velocidad devuelta
     
+    # 10 -> 1
     def set_speed(self, speed):
-        if self.speed_blocked == False:
-            self.current_speed = speed/100
-
+        if self.speed_blocked == False:            
+            self.current_speed = int(speed)
     def set_steer(self, steer):
         if self.speed_blocked == False:
             self.current_steer = steer

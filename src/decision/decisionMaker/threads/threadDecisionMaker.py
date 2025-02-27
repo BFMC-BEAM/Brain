@@ -45,7 +45,7 @@ class threadDecisionMaker(ThreadWithStop):
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
 
-        self.current_speed = "0"
+        self.current_speed = 100
         self.current_steer = "0"
         self.current_direction = None
         self.current_deviation = 0.
@@ -53,7 +53,6 @@ class threadDecisionMaker(ThreadWithStop):
         self.intersection = -1
 
     def run(self):
-        print("arranca")
 
         while self._running:
 
@@ -72,27 +71,23 @@ class threadDecisionMaker(ThreadWithStop):
                 ultra_values = 0
                 stopline_valid_distance = 0
 
+
                 target_speed, target_steer = self.state_machine.handle_events(
                     self.current_deviation, self.current_direction, 0, self.current_speed, signs_detected, obstacles_detected, stopline_valid_distance, ultra_values
                 )
-
-                #print("recibo:", target_speed, target_steer)
+                
+                target_speed = str(target_speed)
 
                 if target_speed != self.current_speed:
-                    self.speedSender.send(str(target_speed))
+                    self.speedSender.send(target_speed)
                     #self.current_speed = target_speed
                 if target_steer != self.current_steer:
-                    print("recibo:", target_speed, target_steer)
-
-                    #print("cambindo direccion")
                     self.steerSender.send(target_steer)
                     self.current_steer = target_steer
 
             elif curr_drivingMode == "manual":
                 target_speed =  self.subscribers["SpeedMotor"].receive() 
                 target_steer =  self.subscribers["SteerMotor"].receive() 
-                if target_speed is not None:
-                    print("recibo:", target_speed, target_steer)
 
                 if target_speed is not None:
                     self.speedSender.send(str(target_speed))
