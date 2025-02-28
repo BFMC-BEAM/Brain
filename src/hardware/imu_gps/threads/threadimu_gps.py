@@ -2,9 +2,11 @@ from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (ImuData, ImuGPSData)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
-
+import networkx as nx
 from src.hardware.imu_gps.imu_gps import imu_gps
 import time
+AVG_FRAME_COUNT = 10
+
 
 ##########################
 # Initial coordinates    #
@@ -25,7 +27,9 @@ class threadimu_gps(ThreadWithStop):
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
-
+        self.map_path = 'Track_Test.svg'
+        path_file = "src/example/src/nodes_following/Competition_track_graph.graphml"
+        self.track_graph = nx.read_graphml(path_file)
         self.imu_gps_data = messageHandlerSender(self.queuesList, ImuGPSData)
 
         self.subscribe()
@@ -43,6 +47,7 @@ class threadimu_gps(ThreadWithStop):
             "y": 0,
             "yaw": 0,
         }
+        self.coord_history = []
 
 
     def run(self):
@@ -60,10 +65,14 @@ class threadimu_gps(ThreadWithStop):
                 dt = current_time - last_time
                 last_time = current_time  # Actualizar el último tiempo
 
+                # {'x' : 0, 'y': 0}
                 self.curr_coordinates = self.imu_gps.getGpsData(imuData, dt)    # Actualizar coordenadas usando el delta de tiempo dinámico
                 # self.imu_gps_data.send(self.curr_coordinates)                   # Enviar las coordenadas
                 # print("Current coordinates: ", self.curr_coordinates, imuData)
 
+                self.coord_history.append(self.curr_coordinates)
+                #Dibujar mapa
+            
                 time.sleep(0.15)  # Pequeña pausa para no saturar el CPU
  
     def subscribe(self):
