@@ -273,7 +273,7 @@ class Direction(Enum):
     Queue = "Critical"
     Owner = "ComputerVision"
     msgID = 4
-    msgType = "str"
+    msgType = "float"
 class Lines(Enum):
     Queue = "General"
     Owner = "ComputerVision" 
@@ -305,4 +305,11 @@ class SetSteer(Enum):
     Queue = "Critical"
     Owner = "DecisionMaker"
     msgID = 2
+    msgType = "str"
+
+######################    From imu_gps  ###########################
+class ImuGPSData(Enum):
+    Queue = "General"
+    Owner = "threadimu_gps"
+    msgID = 1
     msgType = "str"
