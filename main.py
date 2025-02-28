@@ -76,10 +76,12 @@ queueList = {
 
 logging = logging.getLogger()
 
-yolo_path = "yolov5su_ncnn_model"
+yolo_weights = "trained_model/train/weights/best.pt"  # Nueva ruta del modelo entrenado
+yolo_path = "trained_model/train/weights/best_ncnn_model"
+
 if not os.path.exists(yolo_path):
-    model = YOLO("yolov5s.pt")
-    model.export(format="ncnn")  
+    model = YOLO(yolo_weights)  # Cargar el modelo desde la nueva ubicación
+    model.export(format="ncnn")  # Exportar modelo a formato NCNN
 
 Dashboard = True
 Camera = True
