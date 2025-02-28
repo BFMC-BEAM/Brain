@@ -2,10 +2,9 @@ import time
 import networkx as nx
 import numpy as np # grafo
 
-from decision_maker.distanceModule import DistanceModule
-from nodes_following.controller_onnx import Controller
-from nodes_following.controller_onnx import Controller
-from decision_maker.constants import (
+from src.decision.distance.distanceModule import DistanceModule
+from src.decision.lineFollowing.purepursuitpd import Controller
+from src.utils.constants import (
     #States
     start_state, end_state, lane_following, classifying_signal, stop_state, parking_state,
     overtaking_moving_car, overtaking_static_car, avoiding_roadblock,
@@ -104,7 +103,7 @@ class StateMachine():
             },
             stopline_state: {
                 STOPLINE_WAITING: stopline_state,
-                STOPLINE_TIMEOUT: tracking_local_path,
+                STOPLINE_TIMEOUT: lane_following,
             },
             classifying_obstacle: {
                 PEDESTRIAN_DETECTED: pedestrian_crossing,
@@ -297,7 +296,7 @@ class StateMachine():
                 self.change_state(SIGN_DISTANCE_THRESHOLD)
             elif obstacles_detected and any(valid_distance for _, valid_distance in obstacles_detected):
                 self.change_state(OBSTACLE_DISTANCE_THRESHOLD)
-            elif self.stop_line == True:
+            elif self.stopline_valid_distance:
                 self.change_state(STOP_LINE_APPROACH_DISTANCE_THRESHOLD)
             else:
                 self.change_state(CONTINUE_LANE_FOLLOWING)
@@ -320,7 +319,7 @@ class StateMachine():
             else:
                 self.change_state(INTERSECTION_STOP)
         elif self.current_state == stopline_state:
-            if self.stop_line == True:
+            if self.stopline_valid_distance:
                 self.change_state(STOPLINE_WAITING)
             else:
                 self.change_state(STOPLINE_TIMEOUT)

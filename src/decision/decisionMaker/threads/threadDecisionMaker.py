@@ -11,7 +11,8 @@ from src.utils.messages.allMessages import (
     SetSpeed, 
     SetSteer, 
     SpeedMotor, 
-    SteerMotor, 
+    SteerMotor,
+    StopLineDistance, 
     Ultra,
     CV_ObjectsDetected,
     Deviation, 
@@ -51,6 +52,7 @@ class threadDecisionMaker(ThreadWithStop):
         self.current_deviation = 0.
         self.objects_detected = None
         self.intersection = -1
+        self.stopline_distance = None
 
     def run(self):
         print("arranca")
@@ -67,8 +69,9 @@ class threadDecisionMaker(ThreadWithStop):
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
                 self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
+                self.stopline_distance = self.subscribers["StopLineDistance"].receive()          
                 target_speed, target_steer = self.state_machine.handle_events(
-                    self.current_deviation, self.objects_detected, self.current_speed, self.current_steer, self.direction, ultra_values
+                    self.current_deviation, self.objects_detected, self.current_speed, self.current_steer, self.direction, self.stopline_distance, ultra_values
                 )
                 #print("recibo:", target_speed, target_steer)
 
@@ -126,6 +129,9 @@ class threadDecisionMaker(ThreadWithStop):
 
         subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectsDetected, "lastOnly", True)
         self.subscribers["CV_ObjectsDetected"] = subscriber
+
+        subscriber = messageHandlerSubscriber(self.queuesList, StopLineDistance, "fifo", True)
+        self.subscribers["StopLineDistance"] = subscriber
         
 
     # =============================== START ===============================================
