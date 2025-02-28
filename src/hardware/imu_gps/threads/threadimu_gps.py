@@ -1,3 +1,6 @@
+import datetime
+import json
+import os
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.allMessages import (ImuData, ImuGPSData)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -25,9 +28,10 @@ class threadimu_gps(ThreadWithStop):
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
+        self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
 
         self.imu_gps_data = messageHandlerSender(self.queuesList, ImuGPSData)
-
+        self.imu_data_history = []
         self.subscribe()
         super(threadimu_gps, self).__init__()
         self._running = True
@@ -54,19 +58,59 @@ class threadimu_gps(ThreadWithStop):
         while self._running:
             imuData = self.subscribers["ImuData"].receive()  # Get the imu data
             if imuData is not None:
-                # print(imuData)
-                # Calcular delta de tiempo real
+                
                 current_time = time.time()
                 dt = current_time - last_time
                 last_time = current_time  # Actualizar el último tiempo
 
-                self.curr_coordinates = self.imu_gps.getGpsData(imuData, dt)    # Actualizar coordenadas usando el delta de tiempo dinámico
-                # self.imu_gps_data.send(self.curr_coordinates)                   # Enviar las coordenadas
-                # print("Current coordinates: ", self.curr_coordinates, imuData)
+                if self.logging is True: 
+                    self.start_logging(imuData, dt)
 
-                time.sleep(0.15)  # Pequeña pausa para no saturar el CPU
- 
+                if self.debugging is True:
+                     self.start_debugging(imuData, dt)
+
+                time.sleep(0.1)
+    def start_logging(self, imu_data, dt):
+        # Asegurar que imu_data sea un diccionario
+        if isinstance(imu_data, str):  
+            imu_data = json.loads(imu_data)  # Convertir JSON a diccionario
+        imu_data["dt"] = dt
+        self.imu_data_history.append(imu_data)
+        self.save_labels(self.imu_data_history,f'imu_history_{self.timestamp}.json')        
+
+    def start_debugging(self, imu_data, dt):
+        print(f'{imu_data},{dt}')
+
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
         subscriber = messageHandlerSubscriber(self.queuesList, ImuData, "lastOnly", True)
         self.subscribers["ImuData"] = subscriber        
+
+
+        # Cargar labels
+    def load_labels(self,labels_path):
+        if os.path.exists(labels_path):
+            with open(labels_path, 'r') as file:
+                return json.load(file)
+        return {}
+        
+
+    def save_labels(self,labels, output_path):
+        try:
+            '''
+            # Si ya existe el archivo de etiquetas, lo cargamos
+            if os.path.exists(output_path):
+                with open(output_path, 'r') as file:
+                    existing_labels = json.load(file)
+            else:
+                existing_labels = {}
+            
+            # Actualizamos las etiquetas de las imágenes, sobreescribiendo las existentes
+            existing_labels.update(labels)
+            '''
+            # Guardamos las etiquetas actualizadas en el archivo
+            with open(output_path, 'w') as file:
+                json.dump(labels, file, indent=4)
+        
+        except Exception as e:
+            print(f"Error al guardar los labels: {e}")
