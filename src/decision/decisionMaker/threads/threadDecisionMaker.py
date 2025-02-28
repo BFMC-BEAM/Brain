@@ -92,9 +92,9 @@ class threadDecisionMaker(ThreadWithStop):
                     self.speedSender.send(str(target_speed))
                 if target_steer is not None:
                     self.steerSender.send(str(target_steer))
-            # elif curr_drivingMode == "stop":
-            #     self.speedSender.send("0")
-            #     self.steerSender.send("0")
+            elif curr_drivingMode == "stop":
+                self.speedSender.send("0")
+                self.steerSender.send("0")
             time.sleep(0.03)
 
             
