@@ -1,4 +1,11 @@
+import json
+from src.hardware.imu_gps.map_drawing import MapDrawer
 from src.templates.threadwithstop import ThreadWithStop
+import networkx as nx
+import time
+from src.utils.helpers import encode_image
+from src.utils.constants import GPS_DATA_PATH, TRACK_GRAPH_PATH
+AVG_FRAME_COUNT = 10
 from src.utils.messages.allMessages import (ImuData, ImuGPSData, serialCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
@@ -8,14 +15,33 @@ import time
 import cv2
 from pyslam.slam import SLAMSystem  # Importamos PySLAM
 
+##########################
+# Initial coordinates    #
+# Paso de peatones       #
+# x: 4 y: 0.75 yaw: 3.14 #
+##########################
+
 class threadimu_gps(ThreadWithStop):
     def __init__(self, queueList, logging, debugging=False):
         self.queuesList = queueList
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
-
+        self.track_graph = nx.read_graphml(TRACK_GRAPH_PATH)
+        self.map_drawer = MapDrawer(self.track_graph)
         self.imu_gps_data = messageHandlerSender(self.queuesList, ImuGPSData)
+        self.map_image_sender = messageHandlerSender(self.queuesList, MapImage)
+        self.imu_data = []
+        self.curr_coordinates = {
+            "x": 4,
+            "y": 0.75,
+            "yaw": 3.14,
+            #"x": 0,
+            #"y": 0,
+            #"yaw": 0,
+        }
+        self.coord_history = []
+
 
         self.subscribe()
         self.init_kalman()  # Inicializar Filtro de Kalman
@@ -32,6 +58,7 @@ class threadimu_gps(ThreadWithStop):
                               [0, 0, 1, 0, 0, 0]])
         self.kf.P *= 1000  # Covarianza inicial grande
         self.kf.R *= 5  # Ruido de medición
+
 
     def update_kalman(self, imu_data):
         """Actualiza el Filtro de Kalman con datos del IMU"""
@@ -88,6 +115,10 @@ class threadimu_gps(ThreadWithStop):
 
                     # Enviar la pose fusionada
                     self.imu_gps_data.send(slam_pose)
+                    #Dibujar mapa
+                    self.map_drawer.add_gps_data(slam_pose[0], slam_pose[1])
+                    drawn_map = self.map_drawer.get_current_map()
+                    self.map_image_sender.send(encode_image(drawn_map))
 
             time.sleep(0.1)  # Ajusta el tiempo de espera según sea necesario
 

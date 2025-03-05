@@ -62,7 +62,7 @@ from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
 from src.ComputerVision.StopLineDetection.processStopLineDetection import processStopLineDetection
-# from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
+from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
 from src.hardware.imu_gps.processimu_gps import processimu_gps
 # ======================================== SETTING UP ====================================
 allProcesses = list()
@@ -76,6 +76,7 @@ queueList = {
 
 logging = logging.getLogger()
 
+
 yolo_weights = "trained_model/train/weights/best.pt"  # Nueva ruta del modelo entrenado
 yolo_path = "trained_model/train/weights/best_ncnn_model"
 
@@ -84,14 +85,14 @@ if not os.path.exists(yolo_path):
     model.export(format="ncnn")  # Exportar modelo a formato NCNN
 
 Dashboard = True
-Camera = True
+Camera = False
 Semaphores = False
 TrafficCommunication = False
-SerialHandler = True
+SerialHandler = False
 
 # ------ New component flags starts here ------#
-DecisionMaker = True
-LaneDetection = True
+DecisionMaker = False
+LaneDetection = False
 ObjectDetection = False
 StopLineDetection = False
 ImuGPS = True

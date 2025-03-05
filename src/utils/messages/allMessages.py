@@ -313,3 +313,8 @@ class ImuGPSData(Enum):
     Owner = "threadimu_gps"
     msgID = 1
     msgType = "str"
+class MapImage(Enum):
+    Queue = "General"
+    Owner = "threadimu_gps"
+    msgID = 2
+    msgType = "str"

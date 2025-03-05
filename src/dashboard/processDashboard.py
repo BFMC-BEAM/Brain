@@ -77,7 +77,6 @@ class processDashboard(WorkerProcess):
         self.messagesAndVals.pop("Semaphores")
         self.messagesAndVals.pop("serialCamera")
         self.messagesAndVals.pop("Intersection")
-
         self.subscribe()
 
         # Define WebSocket event handlers
@@ -167,7 +166,7 @@ class processDashboard(WorkerProcess):
     def sendContinuousHardwareData(self):   
         self.memoryUsage = psutil.virtual_memory().percent
         self.cpuCoreUsage = psutil.cpu_percent(interval=1, percpu=True)
-        self.cpuTemperature = round(psutil.sensors_temperatures()['cpu_thermal'][0].current)
+        #self.cpuTemperature = round(psutil.sensors_temperatures()['cpu_thermal'][0].current)
         threading.Timer(1, self.sendContinuousHardwareData).start()
 
     def sendContinuousMessages(self):
