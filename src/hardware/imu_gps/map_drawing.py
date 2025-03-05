@@ -29,16 +29,16 @@ class MapDrawer():
         ax.imshow(img, extent=[0, 6, 0, 6])  # Mantener proporciones del mapa
 
         # Dibujar el grafo (nodos y aristas)
-        for edge in self.G.edges():
-            x_values = [nodes[edge[0]][0], nodes[edge[1]][0]]
-            y_values = [nodes[edge[0]][1], nodes[edge[1]][1]]
-            ax.plot(x_values, y_values, 'g-', linewidth=2)  # Líneas verdes para las aristas
+        # for edge in self.G.edges():
+        #     x_values = [nodes[edge[0]][0], nodes[edge[1]][0]]
+        #     y_values = [nodes[edge[0]][1], nodes[edge[1]][1]]
+        #     ax.plot(x_values, y_values, 'g-', linewidth=2)  # Líneas verdes para las aristas
 
-        for node, (x, y) in nodes.items():
-            ax.plot(x, y, 'ro', markersize=5)  # Puntos rojos para los nodos
+        # for node, (x, y) in nodes.items():
+        #     ax.plot(x, y, 'ro', markersize=5)  # Puntos rojos para los nodos
 
         # Línea para la trayectoria GPS
-        trajectory_line, = ax.plot([], [], 'b-', linewidth=2, alpha=0.7, label="GPS Trajectory")
+        trajectory_line, = ax.plot([], [], 'c-', linewidth=2, alpha=0.7, label="GPS Trajectory")
 
         # Quitar labels y márgenes
         ax.set_xticks([])

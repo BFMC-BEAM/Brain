@@ -2,10 +2,9 @@ import time
 import networkx as nx
 import numpy as np # grafo
 
-from decision_maker.distanceModule import DistanceModule
-from nodes_following.controller_onnx import Controller
-from nodes_following.controller_onnx import Controller
-from decision_maker.constants import (
+from src.decision.distance.distanceModule import DistanceModule
+from src.decision.lineFollowing.purepursuitpd import Controller
+from src.utils.constants import (
     #States
     start_state, end_state, lane_following, classifying_signal, stop_state, parking_state,
     overtaking_moving_car, overtaking_static_car, avoiding_roadblock,

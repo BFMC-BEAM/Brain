@@ -1,3 +1,17 @@
+import datetime
+import numpy as np
+import cv2
+import queue
+import base64
+import matplotlib.pyplot as plt
+from src.templates.threadwithstop import ThreadWithStop
+from src.utils.messages.allMessages import (ImuData, serialCamera, MapImage)
+from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
+from src.utils.messages.messageHandlerSender import messageHandlerSender
+import ast
+from src.hardware.imu_gps.opticalFlowOdometry import OpticalFlowOdometry
+from src.hardware.imu_gps.kalman_filter_imu import KalmanFilterIMU
+
 import json
 from src.hardware.imu_gps.map_drawing import MapDrawer
 from src.templates.threadwithstop import ThreadWithStop
@@ -6,14 +20,7 @@ import time
 from src.utils.helpers import encode_image
 from src.utils.constants import GPS_DATA_PATH, TRACK_GRAPH_PATH
 AVG_FRAME_COUNT = 10
-from src.utils.messages.allMessages import (ImuData, ImuGPSData, serialCamera)
-from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
-from src.utils.messages.messageHandlerSender import messageHandlerSender
-from filterpy.kalman import KalmanFilter
-import numpy as np
-import time
-import cv2
-from pyslam.slam import SLAMSystem  # Importamos PySLAM
+
 
 ##########################
 # Initial coordinates    #
@@ -21,112 +28,130 @@ from pyslam.slam import SLAMSystem  # Importamos PySLAM
 # x: 4 y: 0.75 yaw: 3.14 #
 ##########################
 
+
 class threadimu_gps(ThreadWithStop):
+    """Hilo que maneja la IMU y procesa la odometría"""
     def __init__(self, queueList, logging, debugging=False):
         self.queuesList = queueList
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
+        self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
+
+        self.imu_gps_data = messageHandlerSender(self.queuesList, ImuData)
+        self.imu_data_history = []
+        
         self.track_graph = nx.read_graphml(TRACK_GRAPH_PATH)
         self.map_drawer = MapDrawer(self.track_graph)
-        self.imu_gps_data = messageHandlerSender(self.queuesList, ImuGPSData)
         self.map_image_sender = messageHandlerSender(self.queuesList, MapImage)
-        self.imu_data = []
-        self.curr_coordinates = {
-            "x": 4,
-            "y": 0.75,
-            "yaw": 3.14,
-            #"x": 0,
-            #"y": 0,
-            #"yaw": 0,
-        }
-        self.coord_history = []
 
+        self.velocity = np.array([0.0, 0.0])
+        self.imu_position = np.array([0.0, 0.0])
+        self.positions = []  # Lista para almacenar la trayectoria
 
+        self.optical_flow = OpticalFlowOdometry(scale_factor=1/0.6 )  
         self.subscribe()
-        self.init_kalman()  # Inicializar Filtro de Kalman
-        self.init_pyslam()   # Inicializar PySLAM
         super(threadimu_gps, self).__init__()
-        self._running = True
 
-    def init_kalman(self):
-        """Inicializa el Filtro de Kalman para fusionar IMU"""
-        self.kf = KalmanFilter(dim_x=6, dim_z=3)  # 6 estados (x, y, z, vx, vy, vz) y 3 observaciones (IMU)
-        self.kf.F = np.eye(6)  # Matriz de transición
-        self.kf.H = np.array([[1, 0, 0, 0, 0, 0],
-                              [0, 1, 0, 0, 0, 0],
-                              [0, 0, 1, 0, 0, 0]])
-        self.kf.P *= 1000  # Covarianza inicial grande
-        self.kf.R *= 5  # Ruido de medición
+        self.cam_position = [4,0.75]
 
-
-    def update_kalman(self, imu_data):
-        """Actualiza el Filtro de Kalman con datos del IMU"""
-        acceleration = np.array([imu_data.ax, imu_data.ay, imu_data.az])  # Extraer aceleraciones
-        self.kf.predict()
-        self.kf.update(acceleration)
-        return self.kf.x[:3]  # Retorna la posición estimada
-
-    def init_pyslam(self):
-        """Inicializa el sistema de SLAM"""
-        self.slam = SLAMSystem()  # Instancia PySLAM
+        # Inicializa el filtro de Kalman
+        process_noise_cov = np.eye(4) * 0.00000000005  
+        measurement_noise_cov = np.eye(4) * 500  
+        initial_error_cov = np.eye(4) * 0.05  
+        
+        self.kalman_filter = KalmanFilterIMU(dt=0.15,
+                                            process_noise_cov=process_noise_cov,
+                                            measurement_noise_cov=measurement_noise_cov,
+                                            initial_error_cov=initial_error_cov)  
 
     def run(self):
-        print("imu_gps thread is running")
-        imu_buffer = []  # Para almacenar datos recientes del IMU
+        self._running = True
+        print("IMU y odometría thread está corriendo")
 
+        w_imu = 0
+        w_cam = 1
+        
         while self._running:
-            imu_data = self.subscribers["ImuData"].receive()
-            frame_camera = self.subscribers["serialCamera"].receive()
+            imuData = self.subscribers["ImuData"].receive()
+            frameData = self.subscribers["serialCamera"].receive()
 
-            if imu_data is not None:
-                timestamp_imu = time.time()
-                imu_buffer.append((timestamp_imu, imu_data))
-                if len(imu_buffer) > 10:  # Mantén solo los últimos 10 datos
-                    imu_buffer.pop(0)
+            if imuData is not None:
+                imuData = ast.literal_eval(imuData)
 
-                print(f"IMU Data -> Acc: ({imu_data.ax:.2f}, {imu_data.ay:.2f}, {imu_data.az:.2f}) "
-                    f"Gyr: ({imu_data.gx:.2f}, {imu_data.gy:.2f}, {imu_data.gz:.2f})")
+                acceleration = np.array([
+                    float(imuData["accelx"]),
+                    float(imuData["accely"]),
+                    float(imuData["accelz"])
+                ])
 
-            if frame_camera is not None:
-                timestamp_cam = time.time()
+                velocity = np.array([
+                    float(imuData["velx"]), 
+                    float(imuData["vely"]), 
+                    float(imuData["velz"])
+                ])
+                position = np.array([
+                    float(imuData["posx"]), 
+                    float(imuData["posy"]), 
+                    float(imuData["posz"])
+                ])
 
-                # Buscar el dato de IMU más cercano en tiempo
-                if imu_buffer:
-                    closest_imu = min(imu_buffer, key=lambda t: abs(t[0] - timestamp_cam))
-                    imu_data = closest_imu[1]
+                self.velocity = np.array([velocity[0], velocity[1]])  
+                self.imu_position = np.array([position[0]*10, position[1]*10])  
 
-                    # Estimar posición con el IMU
-                    estimated_position = self.update_kalman(imu_data)
+                # print(f"IMU: {self.imu_position}")
+                # self.imu_gps_data.send(self.imu_position)
+                #Dibujar mapa
 
-                    print(f"Kalman Estimated Position -> X: {estimated_position[0]:.2f}, "
-                        f"Y: {estimated_position[1]:.2f}, Z: {estimated_position[2]:.2f}")
+                self.imu_position[0] = (self.imu_position[0]/10)+4
+                self.imu_position[1] = (self.imu_position[1]/10)+0.75
 
-                    # Convertir imagen a escala de grises
-                    frame_gray = cv2.cvtColor(frame_camera, cv2.COLOR_BGR2GRAY)
+            if frameData is not None:
+                frame_bytes = base64.b64decode(frameData)
+                np_arr = np.frombuffer(frame_bytes, np.uint8)
+                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                
+                if frame is not None:
+                    self.cam_position = self.optical_flow.process_frame(frame)
+                    # print(f"Camera: {cam_position}")
+                    combined_position = (w_imu * self.imu_position) + (w_cam * self.cam_position[:2])
+                    
+                    # Guardar posición en la lista
+                    self.positions.append(combined_position)
 
-                    # Enviar datos a PySLAM
-                    self.slam.process_frame(frame_gray, estimated_position)
+                    # Graficar y guardar imagen
+                    self.plot_positions()
+                    
+                    print(f"Posición combinada (IMU + Cámara): {combined_position} \t|\t IMU: {self.imu_position} \t|\t Camera: {self.cam_position}")
 
-                    # Obtener la pose estimada del SLAM
-                    slam_pose = self.slam.get_current_position()
+                    # self.map_drawer.add_gps_data(combined_position[0], combined_position[1])
+                    # drawn_map = self.map_drawer.get_current_map()
+                    # self.map_image_sender.send(encode_image(drawn_map))
 
-                    print(f"SLAM Position -> X: {slam_pose[0]:.2f}, Y: {slam_pose[1]:.2f}, Z: {slam_pose[2]:.2f}")
+            time.sleep(0.01)
 
-                    # Enviar la pose fusionada
-                    self.imu_gps_data.send(slam_pose)
-                    #Dibujar mapa
-                    self.map_drawer.add_gps_data(slam_pose[0], slam_pose[1])
-                    drawn_map = self.map_drawer.get_current_map()
-                    self.map_image_sender.send(encode_image(drawn_map))
+    def plot_positions(self):
+        """Genera y guarda una imagen con solo el punto actual"""
+        if not self.positions:
+            return  # No hay posiciones registradas
 
-            time.sleep(0.1)  # Ajusta el tiempo de espera según sea necesario
+        x, y = self.positions[-1]  # Última posición
+
+        plt.figure(figsize=(6, 6), dpi=100)
+        plt.scatter(x, y, color='red', s=100)  # Dibuja solo el punto en rojo
+        plt.xlabel("Posición X")
+        plt.ylabel("Posición Y")
+        plt.title("Posición actual del auto RC")
+        plt.grid(True)
+
+        plt.xlim(-6, 6)  # Mantener escala fija
+        plt.ylim(-6, 6)
+
+        plt.savefig("posicion.png", bbox_inches="tight")
+        plt.close()
 
 
-    
     def subscribe(self):
-        """Subscribes to the messages you are interested in"""
-        subscriber = messageHandlerSubscriber(self.queuesList, ImuData, "lastOnly", True)
-        self.subscribers["ImuData"] = subscriber     
-        subscriber = messageHandlerSubscriber(self.queuesList, serialCamera, "fifo", True)
-        self.subscribers["serialCamera"] = subscriber    
+        """Suscribirse a los mensajes de IMU y cámara"""
+        self.subscribers["ImuData"] = messageHandlerSubscriber(self.queuesList, ImuData, "lastOnly", True)
+        self.subscribers["serialCamera"] = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)

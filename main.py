@@ -85,14 +85,14 @@ if not os.path.exists(yolo_path):
     model.export(format="ncnn")  # Exportar modelo a formato NCNN
 
 Dashboard = True
-Camera = False
+Camera = True
 Semaphores = False
 TrafficCommunication = False
-SerialHandler = False
+SerialHandler = True
 
 # ------ New component flags starts here ------#
-DecisionMaker = False
-LaneDetection = False
+DecisionMaker = True
+LaneDetection = True
 ObjectDetection = False
 StopLineDetection = False
 ImuGPS = True
