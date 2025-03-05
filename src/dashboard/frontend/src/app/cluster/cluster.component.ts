@@ -45,6 +45,7 @@ import { RecordComponent} from './record/record.component';
 import { TimeSpeedSteerComponent} from './time-speed-steer/time-speed-steer.component'
 import { SideMarkerComponent } from './side-marker/side-marker.component'
 import { CommonModule } from '@angular/common';
+import { MapImageComponent } from './map-image/map-image.component';
 @Component({
   selector: 'app-cluster',
   standalone: true,
@@ -52,7 +53,7 @@ import { CommonModule } from '@angular/common';
             CarComponent, InstantConsumptionComponent, StateSwitchComponent,
             KlSwitchComponent, SteeringComponent, LiveCameraComponent,
             WarningLightComponent, HardwareDataComponent, RecordComponent,
-            TimeSpeedSteerComponent, SideMarkerComponent, CommonModule],
+            TimeSpeedSteerComponent, SideMarkerComponent, CommonModule, MapImageComponent],
   templateUrl: './cluster.component.html',
   styleUrl: './cluster.component.css'
 })

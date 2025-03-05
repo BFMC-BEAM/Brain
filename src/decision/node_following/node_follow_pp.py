@@ -5,6 +5,8 @@ import math
 import matplotlib.pyplot as plt
 import networkx as nx
 
+from src.utils.constants import TRACK_GRAPH_PATH
+
 # Parameters
 WB = 0.26  # [m] wheel base of vehicle
 target_speed = 30 / 100  # [m/s] / 100[m/cm] = [cm/s]
@@ -109,7 +111,7 @@ class ControlSystem:
         self.state = False
 
     def run(self, imuData, speed):
-        self._set_track("src/decision/node_following/track_test_graph.graphml")
+        self._set_track(TRACK_GRAPH_PATH)
         global target_speed
 
         # Trayectoria

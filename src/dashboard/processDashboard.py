@@ -77,7 +77,6 @@ class processDashboard(WorkerProcess):
         self.messagesAndVals.pop("Semaphores")
         self.messagesAndVals.pop("serialCamera")
         self.messagesAndVals.pop("Intersection")
-
         self.subscribe()
 
         # Define WebSocket event handlers

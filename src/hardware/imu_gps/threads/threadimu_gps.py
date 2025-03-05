@@ -1,11 +1,17 @@
+import json
+from src.hardware.imu_gps.map_drawing import MapDrawer
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (ImuData, ImuGPSData)
+from src.utils.messages.allMessages import (ImuData, ImuGPSData, MapImage)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 import networkx as nx
 from src.hardware.imu_gps.imu_gps import imu_gps
 import time
+
+from src.utils.helpers import encode_image
+from src.utils.constants import GPS_DATA_PATH, TRACK_GRAPH_PATH
 AVG_FRAME_COUNT = 10
+
 
 
 ##########################
@@ -27,10 +33,13 @@ class threadimu_gps(ThreadWithStop):
         self.logging = logging
         self.debugging = debugging
         self.subscribers = {}
-        self.map_path = 'Track_Test.svg'
-        path_file = "src/example/src/nodes_following/Competition_track_graph.graphml"
-        self.track_graph = nx.read_graphml(path_file)
+        self.track_graph = nx.read_graphml(TRACK_GRAPH_PATH)
+        self.map_drawer = MapDrawer(self.track_graph)
         self.imu_gps_data = messageHandlerSender(self.queuesList, ImuGPSData)
+        self.map_image_sender = messageHandlerSender(self.queuesList, MapImage)
+        self.gps_x = []
+        self.gps_y = []
+
 
         self.subscribe()
         super(threadimu_gps, self).__init__()
@@ -40,12 +49,12 @@ class threadimu_gps(ThreadWithStop):
 
         self.imu_data = []
         self.curr_coordinates = {
-            # "x": 4,
-            # "y": 0.75,
-            # "yaw": 3.14,
-            "x": 0,
-            "y": 0,
-            "yaw": 0,
+            "x": 4,
+            "y": 0.75,
+            "yaw": 3.14,
+            #"x": 0,
+            #"y": 0,
+            #"yaw": 0,
         }
         self.coord_history = []
 
@@ -57,6 +66,7 @@ class threadimu_gps(ThreadWithStop):
         last_time = time.time()  # Tiempo inicial
 
         while self._running:
+            
             imuData = self.subscribers["ImuData"].receive()  # Get the imu data
             if imuData is not None:
                 # print(imuData)
@@ -72,8 +82,11 @@ class threadimu_gps(ThreadWithStop):
 
                 self.coord_history.append(self.curr_coordinates)
                 #Dibujar mapa
+                self.map_drawer.add_gps_data(self.curr_coordinates.x, self.curr_coordinates.y)
+                drawn_map = self.map_drawer.get_current_map()
+                self.map_image_sender.send(encode_image(drawn_map))
+            time.sleep(0.15)  # Pequeña pausa para no saturar el CPU
             
-                time.sleep(0.15)  # Pequeña pausa para no saturar el CPU
  
     def subscribe(self):
         """Subscribes to the messages you are interested in"""

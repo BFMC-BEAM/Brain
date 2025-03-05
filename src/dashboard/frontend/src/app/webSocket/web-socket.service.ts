@@ -56,12 +56,13 @@ export class WebSocketService {
     'Recording',
     'CurrentSpeed',
     'CurrentSteer',
-    'EnableButton'
+    'EnableButton',
+    'MapImage'
   ]);
   
  constructor() {
     this.webSocket = new Socket({
-    url: "http://192.168.255.4:5005",
+    url: "http://192.168.0.16:5005",
     options: {},
     });
 
@@ -120,7 +121,10 @@ export class WebSocketService {
   receiveCamera(): Observable<any> {
     return this.webSocket.fromEvent('CVCamera');
   }
-
+  // Method to receive image updates
+  receiveMap(): Observable<any> {
+    return this.webSocket.fromEvent('MapImage');
+  }
   // Method to receive location updates
   receiveLocation(): Observable<any> {
     return this.webSocket.fromEvent('Location');
