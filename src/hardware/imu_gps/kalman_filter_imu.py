@@ -24,5 +24,6 @@ class KalmanFilterIMU:
 
     def update(self, acceleration):
         observation = [0, 0, acceleration[0], acceleration[1]]  # Observamos la aceleración
+        print(acceleration)
         self.state, self.covariance = self.kf.filter_update(self.state, self.covariance, observation)
         return np.array([self.state[0], self.state[1]]), np.array([self.state[2], self.state[3]])

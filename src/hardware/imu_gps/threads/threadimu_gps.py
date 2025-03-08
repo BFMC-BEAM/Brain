@@ -5,7 +5,7 @@ import queue
 import base64
 import matplotlib.pyplot as plt
 from src.templates.threadwithstop import ThreadWithStop
-from src.utils.messages.allMessages import (ImuData, serialCamera, MapImage)
+from src.utils.messages.allMessages import (ImuData, serialCamera, MapImage, CurrentSteer, CurrentSpeed)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 import ast
@@ -45,8 +45,9 @@ class threadimu_gps(ThreadWithStop):
         self.map_drawer = MapDrawer(self.track_graph)
         self.map_image_sender = messageHandlerSender(self.queuesList, MapImage)
 
+        self.acceleration = np.array([0.0, 0.0])
         self.velocity = np.array([0.0, 0.0])
-        self.imu_position = np.array([0.0, 0.0])
+        self.imu_position = np.array([4.0, 0.75])
         self.positions = []  # Lista para almacenar la trayectoria
 
         self.optical_flow = OpticalFlowOdometry(scale_factor=1/0.6 )  
@@ -54,12 +55,16 @@ class threadimu_gps(ThreadWithStop):
         super(threadimu_gps, self).__init__()
 
         self.cam_position = [4,0.75]
-
+        self.count = 0
         # Inicializa el filtro de Kalman
-        process_noise_cov = np.eye(4) * 0.00000000005  
-        measurement_noise_cov = np.eye(4) * 500  
-        initial_error_cov = np.eye(4) * 0.05  
+        process_noise_cov = np.eye(4) * 0.01  
+        measurement_noise_cov = np.eye(4) * 0.1  
+        initial_error_cov = np.eye(4) * 0.01  
         
+
+        self.values = []  # Lista para almacenar los valores
+        self.num_samples = 50  # Número de muestras a promediar
+
         self.kalman_filter = KalmanFilterIMU(dt=0.15,
                                             process_noise_cov=process_noise_cov,
                                             measurement_noise_cov=measurement_noise_cov,
@@ -74,7 +79,7 @@ class threadimu_gps(ThreadWithStop):
         
         while self._running:
             imuData = self.subscribers["ImuData"].receive()
-            frameData = self.subscribers["serialCamera"].receive()
+            # frameData = self.subscribers["serialCamera"].receive()
 
             if imuData is not None:
                 imuData = ast.literal_eval(imuData)
@@ -96,62 +101,32 @@ class threadimu_gps(ThreadWithStop):
                     float(imuData["posz"])
                 ])
 
-                self.velocity = np.array([velocity[0], velocity[1]])  
-                self.imu_position = np.array([position[0]*10, position[1]*10])  
+                print(acceleration, velocity, position)
 
-                # print(f"IMU: {self.imu_position}")
-                # self.imu_gps_data.send(self.imu_position)
-                #Dibujar mapa
-
-                self.imu_position[0] = (self.imu_position[0]/10)+4
-                self.imu_position[1] = (self.imu_position[1]/10)+0.75
-
-            if frameData is not None:
-                frame_bytes = base64.b64decode(frameData)
-                np_arr = np.frombuffer(frame_bytes, np.uint8)
-                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+                 # self.acceleration = np.array([acceleration[0],acceleration[1]])
+                # self.velocity = np.array([velocity[0], velocity[1]])  
+                self.imu_position = np.array([ (velocity[0]*1.25/100+4),(-velocity[1]*1.25/100)+0.75])  
                 
-                if frame is not None:
-                    self.cam_position = self.optical_flow.process_frame(frame)
-                    # print(f"Camera: {cam_position}")
-                    combined_position = (w_imu * self.imu_position) + (w_cam * self.cam_position[:2])
-                    
-                    # Guardar posición en la lista
-                    self.positions.append(combined_position)
+                self.velocity = np.array([velocity[2]])  
+                
+                # self.imu_gps_data.send(self.imu_position)
+                # Dibujar mapa
+                # if self.count > 50 :
+                self.map_drawer.add_gps_data(self.imu_position[0], self.imu_position[1])
+                drawn_map = self.map_drawer.get_current_map()
+                self.map_image_sender.send(encode_image(drawn_map))
+                self.count=0
 
-                    # Graficar y guardar imagen
-                    self.plot_positions()
-                    
-                    print(f"Posición combinada (IMU + Cámara): {combined_position} \t|\t IMU: {self.imu_position} \t|\t Camera: {self.cam_position}")
+                print(f"IMU: {self.imu_position}")
+                print(f"counter: {self.velocity}")
+                # rpi_position = self.kalman_filter.update(self.acceleration)
 
-                    # self.map_drawer.add_gps_data(combined_position[0], combined_position[1])
-                    # drawn_map = self.map_drawer.get_current_map()
-                    # self.map_image_sender.send(encode_image(drawn_map))
-
-            time.sleep(0.01)
-
-    def plot_positions(self):
-        """Genera y guarda una imagen con solo el punto actual"""
-        if not self.positions:
-            return  # No hay posiciones registradas
-
-        x, y = self.positions[-1]  # Última posición
-
-        plt.figure(figsize=(6, 6), dpi=100)
-        plt.scatter(x, y, color='red', s=100)  # Dibuja solo el punto en rojo
-        plt.xlabel("Posición X")
-        plt.ylabel("Posición Y")
-        plt.title("Posición actual del auto RC")
-        plt.grid(True)
-
-        plt.xlim(-6, 6)  # Mantener escala fija
-        plt.ylim(-6, 6)
-
-        plt.savefig("posicion.png", bbox_inches="tight")
-        plt.close()
+            time.sleep(0.5)
 
 
     def subscribe(self):
         """Suscribirse a los mensajes de IMU y cámara"""
         self.subscribers["ImuData"] = messageHandlerSubscriber(self.queuesList, ImuData, "lastOnly", True)
-        self.subscribers["serialCamera"] = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
+        #self.subscribers["serialCamera"] = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
+        # self.subscribers["CurrentSpeed"] = messageHandlerSubscriber(self.queuesList, CurrentSpeed, "lastOnly", True)
+        # self.subscribers["CurrentSteer"] = messageHandlerSubscriber(self.queuesList, CurrentSteer, "lastOnly", True)
