@@ -66,21 +66,23 @@ class threadDecisionMaker(ThreadWithStop):
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
                 self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
+
                 signs_detected = []
                 obstacles_detected = []
                 ultra_values = 0
                 stopline_valid_distance = 0
-
 
                 target_speed, target_steer = self.state_machine.handle_events(
                     self.current_deviation, self.current_direction, 0, self.current_speed, signs_detected, obstacles_detected, stopline_valid_distance, ultra_values
                 )
                 
                 target_speed = str(target_speed)
-
+                target_steer = str(target_steer)
                 if target_speed != self.current_speed:
+                    print("enviando velocidad: ", target_speed)
                     self.speedSender.send(target_speed)
-                    #self.current_speed = target_speed
+                    self.current_speed = target_speed
+
                 if target_steer != self.current_steer:
                     self.steerSender.send(target_steer)
                     self.current_steer = target_steer
@@ -89,10 +91,16 @@ class threadDecisionMaker(ThreadWithStop):
                 target_speed =  self.subscribers["SpeedMotor"].receive() 
                 target_steer =  self.subscribers["SteerMotor"].receive() 
 
+                if (target_speed != None):
+                    print("manual vel: ", target_speed)
+                if (target_steer != None):
+                    print("manual steer: ", target_steer)
+
                 if target_speed is not None:
                     self.speedSender.send(str(target_speed))
                 if target_steer is not None:
                     self.steerSender.send(str(target_steer))
+
             # elif curr_drivingMode == "stop":
             #     self.speedSender.send("0")
             #     self.steerSender.send("0")

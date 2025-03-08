@@ -168,7 +168,7 @@ class StateMachine():
             INTERSECTION_STOP: self.on_intersection_stop,
             STOPLINE_TIMEOUT: self.on_stopline_timeout,
             STOPLINE_WAITING: self.on_stopline_waiting,
-            
+            STOP_LINE_BLOCKED: self.on_stop_line_blocked,
             ###############################
             SIGNAL_DISTANCE_THRESHOLD: self.on_signal_distance_threshold,
             SIGNAL_BLOCKED: self.on_signal_blocked,
@@ -256,7 +256,8 @@ class StateMachine():
         self.parking_slot_advanced = False
         self.parking_advance_start_time = None
         self.parking_advance_time = 3
-        self.parking_steers = [0, 240, 240, 0, 0, 120, 120, 0,]
+        self.parking_duration = [10,   1,   2, 1, 4,    1,   2, 20] 
+        self.parking_steers =   [0 , 240, 240, 0, 0,  -120, -120, 0]
         self.left_slot = None
         self.right_slot = None
 
@@ -305,12 +306,12 @@ class StateMachine():
         # LANE FOLLOWING VAR
         self.e2 = 0
         self.e3 = 0
-        self.stop_line = False
+        self.stop_line = None
         self.stopline_valid_distance = 0
         self.try_one_lane_following = None
 
         # STANDART VAR
-        self.current_state = lane_following #start_state
+        self.current_state = parking_find_slot #start_state
         self.previous_state = None  
 
         self.current_speed = None
@@ -499,12 +500,13 @@ class StateMachine():
         self.set_speed(0)
         self.set_steer(0)
     def on_lane_following(self): 
-        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed)
+        
+        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, int(self.desired_speed))
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
-        self.set_speed(speed)
-        if self.stopline_valid_distance < 0.9:
-            self.stop_line = True
+        self.set_speed(100)
+        #if self.stopline_valid_distance < 0.9:
+        #    self.stop_line = True
         self.try_one_lane_following = None
 
     def on_signal_distance_threshold(self):
@@ -556,10 +558,10 @@ class StateMachine():
         if self.right_slot == False and self.left_slot == False:
             self.parking_slot_advance: True
         elif self.left_slot == True:
-            self.parking_steers = [abs(x) for x in self.parking_steers]  # Hace que todos sean negativos
+            #self.parking_steers = [abs(x) for x in self.parking_steers]  # Hace que todos sean negativos
             self.parking_found = True
         else:
-            self.parking_steers = [-abs(x) for x in self.parking_steers]  # Hace que todos sean positivos
+            #self.parking_steers = [-abs(x) for x in self.parking_steers]  # Hace que todos sean positivos
             self.parking_found = True
 
 
@@ -575,7 +577,7 @@ class StateMachine():
     def on_try_parking(self): 
         current_time = time.time()  
         elapsed_time = current_time - self.parking_start_time 
-        self.parking_duration = [10, 1, 2, 1, 4, 1, 2, 1] 
+        self.parking_duration = [10, 1, 2, 1, 4, 1, 2, 20] 
 
         if self.parking_step == 0:  
             self.set_speed(200)
@@ -588,40 +590,50 @@ class StateMachine():
         elif self.parking_step == 1:  
             self.set_speed(0)
             self.set_steer(self.parking_steers[1])
+            print("ejecutando paso 1 speed, angle", 0, self.parking_steers[1])
             if elapsed_time >= self.parking_duration[1]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 2:  
             self.set_speed(-100)
             self.set_steer(self.parking_steers[2])
+            print("ejecutando paso 2 speed, angle", -100, self.parking_steers[2])
+
             if elapsed_time >= self.parking_duration[2]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 3: 
             self.set_speed(0)
             self.set_steer(self.parking_steers[3])
+            print("ejecutando paso 3 speed, angle", 0, self.parking_steers[3])
             if elapsed_time >= self.parking_duration[3]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 4: 
+            print("ejecutando paso 4 speed, angle", -100, self.parking_steers[4])
+
             self.set_speed(-100)
             self.set_steer(self.parking_steers[4])
             if elapsed_time >= self.parking_duration[4]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 5: 
+            print("ejecutando paso 5 speed, angle", 0, self.parking_steers[5])
+
             self.set_speed(0)
             self.set_steer(self.parking_steers[5])
             if elapsed_time >= self.parking_duration[5]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 6: 
+            print("ejecutando paso 6 speed, angle", -100, self.parking_steers[6])
             self.set_speed(-100)
             self.set_steer(self.parking_steers[6]) 
             if elapsed_time >= self.parking_duration[6]:
                 self.parking_step += 1
                 self.parking_start_time = current_time
         elif self.parking_step == 7:
+            print("ejecutando paso 7 speed, angle", 0, self.parking_steers[7])
             self.set_speed(0)
             self.set_steer(self.parking_steers[7])
             if elapsed_time >= self.parking_duration[7]:
@@ -636,8 +648,8 @@ class StateMachine():
     def on_parking_advance_waiting(self):
         current_time = time.time()  
         elapsed_time = current_time - self.parking_advance_start_time 
-        self.set_speed(40)
-        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.4)
+        self.set_speed(50)
+        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.05)
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
         if elapsed_time > self.parking_advance_time:
@@ -888,7 +900,7 @@ class StateMachine():
                 self.car_avoiding_time = current_time 
         elif self.car_avoiding_step == 3:  
             self.set_speed(100)
-            speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.2)
+            speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.1)
             angle_ref = np.rad2deg(angle_ref)
             self.set_steer(angle_ref)
             if elapsed_time >= self.parking_duration[3]:
@@ -952,8 +964,7 @@ class StateMachine():
     
     # 10 -> 1
     def set_speed(self, speed):
-        if self.speed_blocked == False:            
-            self.current_speed = int(speed)
+        self.current_speed = int(speed)
+
     def set_steer(self, steer):
-        if self.speed_blocked == False:
-            self.current_steer = steer
+        self.current_steer = int(steer)
