@@ -73,9 +73,9 @@ class ObjectDetectionProcessor:
                 elif class_name in self.obstacle_handlers:
                     handler = self.obstacle_handlers[class_name]
                     valid_distance, lateral_distance = handler(cv_image, bbox, confidence, image_width)
-                    detected_obstacles.append((class_name, valid_distance, lateral_distance))
+                    detected_signs.append((class_name, valid_distance, lateral_distance))
         
-        return cv_image, detected_signs, detected_obstacles
+        return cv_image, detected_signs
 
     def stop_handler(self, cv_image, bbox, confidence, image_width):
         return self.handle_sign(cv_image, bbox, confidence, 40, "STOP", image_width)

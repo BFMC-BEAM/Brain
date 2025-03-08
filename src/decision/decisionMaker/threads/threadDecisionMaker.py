@@ -66,7 +66,7 @@ class threadDecisionMaker(ThreadWithStop):
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
                 self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
-
+                print(self.objects_detected)
                 signs_detected = []
                 obstacles_detected = []
                 ultra_values = 0
