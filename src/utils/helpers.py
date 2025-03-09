@@ -3,8 +3,8 @@ import cv2
 import numpy as np
 
 
-def encode_image(frame):
-        _, serialEncodedImg = cv2.imencode(".jpg", frame)
+def encode_image(frame, format = ".jpg"):
+        _, serialEncodedImg = cv2.imencode(format, frame)
         serialEncodedImageData = base64.b64encode(serialEncodedImg).decode("utf-8")
         return serialEncodedImageData
 

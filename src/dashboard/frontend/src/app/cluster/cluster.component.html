@@ -27,7 +27,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. -->
 
 <div class="cluster-container" [ngClass]="{'pulse-red': this.warningSignal}">
-  <app-map class="cluster-map" [cursorRotation]="cursorRotation" />
+  <!-- <app-map class="cluster-map" [cursorRotation]="cursorRotation" /> -->
+  <app-map-image class="cluster-map-image" />
 
   <div class="cluster-digital-container">
     <div class="cluster-digital-text-container">
@@ -58,7 +59,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. -->
   <app-steering class="cluster-steering" />
   <app-record class="cluster-record" />
   <app-live-camera class="cluster-live-camera" />
-  <app-map-image class="cluster-map-image" />
   <app-warning-light class="cluster-warning-light" />
   <app-hardware-data class="cluster-hardware-data" />
   <app-time-speed-steer class="cluster-time-speed-steer" />

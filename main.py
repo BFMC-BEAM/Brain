@@ -51,10 +51,10 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 # ===================================== PROCESS IMPORTS ==================================
-from ultralytics import YOLO
+#from ultralytics import YOLO
 from src.gateway.processGateway import processGateway
 from src.dashboard.processDashboard import processDashboard
-from src.hardware.camera.processCamera import processCamera
+#from src.hardware.camera.processCamera import processCamera
 from src.hardware.serialhandler.processSerialHandler import processSerialHandler
 from src.data.Semaphores.Semaphores import processSemaphores
 from src.data.TrafficCommunication.processTrafficCommunication import processTrafficCommunication
@@ -62,7 +62,7 @@ from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
 from src.ComputerVision.StopLineDetection.processStopLineDetection import processStopLineDetection
-from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
+#from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
 from src.hardware.imu_gps.processimu_gps import processimu_gps
 # ======================================== SETTING UP ====================================
 allProcesses = list()
@@ -85,14 +85,14 @@ if not os.path.exists(yolo_path):
     model.export(format="ncnn")  # Exportar modelo a formato NCNN
 
 Dashboard = True
-Camera = True
+Camera = False
 Semaphores = False
 TrafficCommunication = False
-SerialHandler = True
+SerialHandler = False
 
 # ------ New component flags starts here ------#
-DecisionMaker = True
-LaneDetection = True
+DecisionMaker = False
+LaneDetection = False
 ObjectDetection = False
 StopLineDetection = False
 ImuGPS = True

@@ -48,6 +48,7 @@ class threadimu_gps(ThreadWithStop):
         self.acceleration = np.array([0.0, 0.0])
         self.velocity = np.array([0.0, 0.0])
         self.imu_position = np.array([4.0, 0.75])
+        self.yaw = np.pi
         self.positions = []  # Lista para almacenar la trayectoria
 
         self.optical_flow = OpticalFlowOdometry(scale_factor=1/0.6 )  
@@ -64,15 +65,17 @@ class threadimu_gps(ThreadWithStop):
 
         self.values = []  # Lista para almacenar los valores
         self.num_samples = 50  # Número de muestras a promediar
-
         self.kalman_filter = KalmanFilterIMU(dt=0.15,
                                             process_noise_cov=process_noise_cov,
                                             measurement_noise_cov=measurement_noise_cov,
-                                            initial_error_cov=initial_error_cov)  
+                                            initial_error_cov=initial_error_cov)
+        if self.debugging:
+            self.test_gps_data = self.get_test_gps_data()  
 
     def run(self):
         self._running = True
         print("IMU y odometría thread está corriendo")
+        
 
         w_imu = 0
         w_cam = 1
@@ -100,8 +103,9 @@ class threadimu_gps(ThreadWithStop):
                     float(imuData["posy"]), 
                     float(imuData["posz"])
                 ])
+                self.yaw = float(imuData["yaw"])
 
-                print(acceleration, velocity, position)
+                print(acceleration, velocity, position, self.yaw)
 
                  # self.acceleration = np.array([acceleration[0],acceleration[1]])
                 # self.velocity = np.array([velocity[0], velocity[1]])  
@@ -112,15 +116,21 @@ class threadimu_gps(ThreadWithStop):
                 # self.imu_gps_data.send(self.imu_position)
                 # Dibujar mapa
                 # if self.count > 50 :
-                self.map_drawer.add_gps_data(self.imu_position[0], self.imu_position[1])
-                drawn_map = self.map_drawer.get_current_map()
-                self.map_image_sender.send(encode_image(drawn_map))
                 self.count=0
 
                 print(f"IMU: {self.imu_position}")
                 print(f"counter: {self.velocity}")
                 # rpi_position = self.kalman_filter.update(self.acceleration)
+            elif self.debugging:
+                pos = self.test_gps_data.pop()
+                self.imu_position = [pos["posx"],pos["posy"]]
+                self.yaw = float(pos["yaw"])
 
+                
+            
+            self.map_drawer.add_gps_data(self.imu_position[0], self.imu_position[1], self.yaw)
+            drawn_map = self.map_drawer.get_current_map()
+            self.map_image_sender.send(encode_image(drawn_map,".png"))
             time.sleep(0.5)
 
 
@@ -130,3 +140,28 @@ class threadimu_gps(ThreadWithStop):
         #self.subscribers["serialCamera"] = messageHandlerSubscriber(self.queuesList, serialCamera, "lastOnly", True)
         # self.subscribers["CurrentSpeed"] = messageHandlerSubscriber(self.queuesList, CurrentSpeed, "lastOnly", True)
         # self.subscribers["CurrentSteer"] = messageHandlerSubscriber(self.queuesList, CurrentSteer, "lastOnly", True)
+    
+    def get_test_gps_data(self):
+        data = []
+        with open(GPS_DATA_PATH, 'r', encoding='utf-8') as file:
+            data = json.load(file)  # Carga el contenido del archivo JSON en un diccionario
+        '''
+        new_data = []
+    
+        for i in range(1, len(data)):  # Empezamos desde el segundo punto para calcular delta
+            prev = data[i - 1]
+            curr = data[i]
+            
+            dx = curr["posx"] - prev["posx"]
+            dy = curr["posy"] - prev["posy"]
+            
+            yaw_rad = np.arctan2(dy, dx)  # Calcular el ángulo en radianes
+            yaw_deg = np.degrees(yaw_rad)  # Convertir a grados
+
+            # Copiar los datos originales y reemplazar yaw con el calculado
+            updated_entry = curr.copy()
+            updated_entry["yaw"] = yaw_deg
+            new_data.append(updated_entry)
+            data = new_data
+            '''
+        return data[::-1]

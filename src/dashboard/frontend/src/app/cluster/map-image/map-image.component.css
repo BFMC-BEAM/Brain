@@ -27,8 +27,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 
 .image-container {
-  width: 450px;
-  height: 450px; 
+  width: 400px;
+  height: 400px; 
   position: relative;
 }
 
@@ -37,8 +37,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
   height: auto;
   position: relative;
   object-fit: cover; 
-  border: 0.2vw solid rgb(188, 188, 188);
-  filter: drop-shadow(0 0 0.3vw rgb(0, 0, 0, 0.5))
 }
 
 .loader {
