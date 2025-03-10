@@ -4,7 +4,6 @@ if __name__ == "__main__":
 
 from src.ComputerVision.StopLineDetection.threads import threadStopLineDetection
 from src.templates.workerprocess import WorkerProcess
-from src.ComputerVision.ObjectDetection.threads.threadObjectDetection import threadObjectDetection
 
 class processStopLineDetection(WorkerProcess):
     """This process handles LaneDetection.

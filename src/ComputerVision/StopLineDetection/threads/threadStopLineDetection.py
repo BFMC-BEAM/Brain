@@ -10,7 +10,6 @@ from src.utils.messages.allMessages import (
     serialCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
-from src.ComputerVision.ObjectDetection.object_detection import ObjectDetectionProcessor
 import time
 
 from src.utils.helpers import decode_image, encode_image

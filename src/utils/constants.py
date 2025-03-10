@@ -146,3 +146,10 @@ ROADBLOCK = "ROADBLOCK"
 RED = "RED"
 YELLOW = "YELLOW"
 GREEN = "GREEN"
+
+# ========================= MAP_PATH ==========================
+
+TRACK_GRAPH_PATH = "src/utils/resources/track_test_graph.graphml"
+GPS_DATA_PATH = "src/utils/resources/gps_data.json"
+TRACK_IMG_PATH = "src/utils/resources/Track_Test.png"
+CAR_IMG_PATH = "src/utils/resources/blue_car.png"
