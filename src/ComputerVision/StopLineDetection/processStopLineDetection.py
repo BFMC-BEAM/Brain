@@ -2,7 +2,7 @@ if __name__ == "__main__":
     import sys
     sys.path.insert(0, "../../..")
 
-from src.ComputerVision.StopLineDetection.threads import threadStopLineDetection
+from src.ComputerVision.StopLineDetection.threads.threadStopLineDetection import threadStopLineDetection
 from src.templates.workerprocess import WorkerProcess
 
 class processStopLineDetection(WorkerProcess):
@@ -26,6 +26,6 @@ class processStopLineDetection(WorkerProcess):
     def _init_threads(self):
         """Create the ObjectDetection Publisher thread and add to the list of threads."""
         ObjectDetectionTh = threadStopLineDetection(
-            self.queuesList, self.logging, self.debugging, self.yolo_path
+            self.queuesList, self.logging, self.debugging
         )
         self.threads.append(ObjectDetectionTh)

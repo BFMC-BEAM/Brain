@@ -141,7 +141,7 @@ if DecisionMaker:
     allProcesses.append(processDecisionMaker)
 
 if ImuGPS:
-    processimu_gps = processimu_gps(queueList, logging, debugging = False)
+    processimu_gps = processimu_gps(queueList, logging, debugging = True)
     allProcesses.append(processimu_gps)
 
 if LaneDetection:

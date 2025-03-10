@@ -26,7 +26,8 @@ from src.utils.messages.allMessages import (
     SetSpeed, 
     SetSteer, 
     SpeedMotor, 
-    SteerMotor, 
+    SteerMotor,
+    StopLineDistance, 
     Ultra,
     CV_ObjectsDetected,
     Deviation, 
@@ -83,6 +84,7 @@ class threadDecisionMaker(ThreadWithStop):
         self.current_deviation = 0.
         self.objects_detected = None
         self.intersection = -1
+        self.stopline_distance = None
 
     def run(self):
 
@@ -98,6 +100,8 @@ class threadDecisionMaker(ThreadWithStop):
                 self.current_speed  = self.subscribers["CurrentSpeed"].receive() or self.current_speed
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
                 ultra_values = self.subscribers["Ultra"].receive()          
+                self.stopline_distance = self.subscribers["StopLineDistance"].receive()          
+
                 signs_detected = []
                 obstacles_detected = []
                 
@@ -145,10 +149,10 @@ class threadDecisionMaker(ThreadWithStop):
                     self.speedSender.send(str(target_speed))
                 if target_steer is not None:
                     self.steerSender.send(str(target_steer))
+            elif curr_drivingMode == "stop":
+                self.speedSender.send("0")
+                self.steerSender.send("0")
 
-            # elif curr_drivingMode == "stop":
-            #     self.speedSender.send("0")
-            #     self.steerSender.send("0")
             time.sleep(0.03)
 
     def _decode(self, encoded_str):
@@ -196,6 +200,9 @@ class threadDecisionMaker(ThreadWithStop):
 
         subscriber = messageHandlerSubscriber(self.queuesList, CV_ObjectsDetected, "lastOnly", True)
         self.subscribers["CV_ObjectsDetected"] = subscriber
+
+        subscriber = messageHandlerSubscriber(self.queuesList, StopLineDistance, "fifo", True)
+        self.subscribers["StopLineDistance"] = subscriber
         
 
     # =============================== START ===============================================

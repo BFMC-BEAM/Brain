@@ -285,6 +285,12 @@ class Intersection(Enum):
     Owner = "ComputerVision" 
     msgID = 6
     msgType = "str"
+
+class StopLineDistance(Enum):
+    Queue = "General"
+    Owner = "ComputerVision" 
+    msgID = 7
+    msgType = "float"
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
 ######################    From ObjectDetection  ###########################
 

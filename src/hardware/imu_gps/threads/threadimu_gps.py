@@ -1,4 +1,5 @@
 import datetime
+
 import numpy as np
 import cv2
 import queue
@@ -37,6 +38,7 @@ class threadimu_gps(ThreadWithStop):
         self.debugging = debugging
         self.subscribers = {}
         self.timestamp = datetime.datetime.now().strftime("%d-%m-%H:%M")
+
 
         self.imu_gps_data = messageHandlerSender(self.queuesList, ImuData)
         self.imu_data_history = []
@@ -165,3 +167,4 @@ class threadimu_gps(ThreadWithStop):
             data = new_data
             '''
         return data[::-1]
+

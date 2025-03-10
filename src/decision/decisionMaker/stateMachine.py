@@ -118,7 +118,7 @@ class StateMachine():
             },
             stopline_state: {
                 STOPLINE_WAITING: stopline_state,
-                STOPLINE_TIMEOUT: tracking_local_path,
+                STOPLINE_TIMEOUT: lane_following,
             },
             classifying_obstacle: {
                 PEDESTRIAN_DETECTED: pedestrian_crossing,
@@ -357,6 +357,7 @@ class StateMachine():
                 self.change_state(SIGNAL_DISTANCE_THRESHOLD)
             elif obstacles_detected and any(valid_distance for _, valid_distance, _ in obstacles_detected):
                 self.change_state(OBSTACLE_DISTANCE_THRESHOLD)
+
             elif self.stop_line == True:
                 self.change_state(STOP_LINE_DISTANCE_THRESHOLD)
             else:

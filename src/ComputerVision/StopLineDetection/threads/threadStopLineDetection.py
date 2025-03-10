@@ -7,6 +7,7 @@ from src.utils.messages.allMessages import (
     CVCamera,
     CV_ObjectsDetected,
     Intersection,
+    StopLineDistance,
     serialCamera)
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
@@ -30,13 +31,12 @@ class threadStopLineDetection(ThreadWithStop):
         self.subscribe()
         self.image_sender = messageHandlerSender(self.queuesList, CVCamera)
         self.stopline_sender = messageHandlerSender(self.queuesList, Intersection)
+        self.stopline_distance_sender = messageHandlerSender(self.queuesList, StopLineDistance)
         self.processor = StopLineDetectionProcessor()
         super(threadStopLineDetection, self).__init__()
         self.start_time = time.time()
-        self.limit_time = 3
+        self.limit_time = 0.06
         self.init_count_time = True
-
-        
 
 
     def run(self):
@@ -54,8 +54,9 @@ class threadStopLineDetection(ThreadWithStop):
             FrameCamera = decode_image(FrameCamera)
             dist, _,_ = self.processor.process_image(FrameCamera)
             serialEncodedImageData = encode_image(FrameCamera)
-            if dist < 0.75:
+            if dist < 0.6:
                 #self.stopline_sender.send(serialEncodedImageData)
+                self.stopline_distance_sender.send(dist)
                 print(f"stopline detected at est {dist}")
         
 
