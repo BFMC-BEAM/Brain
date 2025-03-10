@@ -24,7 +24,7 @@ class LaneDetectionProcessor(ImageProcessorInterface):
         start_time = time()
         blob = self.preprocess(frame)
         self.lane_keeper.setInput(blob)
-        out = self.lane_keeper.forward() * LK_CORRECTION #### NOTE: MINUS SIGN IF OLD NET
+        out = - self.lane_keeper.forward() * LK_CORRECTION #### NOTE: MINUS SIGN IF OLD NET
         #print(out)
         e2, e3 = out[0]
 

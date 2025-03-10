@@ -292,7 +292,7 @@ class CV_ObjectsDetected(Enum):
     Queue = "General"
     Owner = "ObjectDetection"
     msgID = 1
-    msgType = "list"
+    msgType = "str"
 
 ######################    From DecisionMaker  ###########################
 class SetSpeed(Enum):
