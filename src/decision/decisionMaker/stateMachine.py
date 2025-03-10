@@ -42,14 +42,14 @@ class StateMachine():
     def __init__(self):
         self.distance_module = DistanceModule()
         self.control_system = Controller()
-        self.desired_speed = 0
+        self.desired_speed = 100
         
         self.state_transitions = {
             start_state: {ROADMAP_LOADED: lane_following},
             lane_following: {
-                OBSTACLE_DISTANCE_THRESHOLD: classifying_obstacle,
+                #OBSTACLE_DISTANCE_THRESHOLD: classifying_obstacle,
+                #SIGNAL_DISTANCE_THRESHOLD: classifying_signal,
                 STOP_LINE_DISTANCE_THRESHOLD: approaching_stop_line,
-                SIGNAL_DISTANCE_THRESHOLD: classifying_signal,
                 END_EVENT: end_state,
                 CONTINUE_LANE_FOLLOWING: lane_following,
                 ULTRA_SOUND_EMERGENCY: classifying_obstacle,
@@ -115,6 +115,8 @@ class StateMachine():
                 INTERSECTION_STOP: stopline_state,
                 INTERSECTION_PRIORITY_EVENT: tracking_local_path,
                 STOP_LINE_BLOCKED: lane_following,
+                OBSTACLE_DISTANCE_THRESHOLD: classifying_obstacle,
+                SIGNAL_DISTANCE_THRESHOLD: classifying_signal,
             },
             stopline_state: {
                 STOPLINE_WAITING: stopline_state,
@@ -307,7 +309,7 @@ class StateMachine():
         self.e2 = 0
         self.e3 = 0
         self.stop_line = None
-        self.stopline_valid_distance = 0
+        self.stopline_distance = 999
         self.try_one_lane_following = None
 
         # INIT VAR
@@ -317,7 +319,7 @@ class StateMachine():
         self.current_speed = None
         self.current_steer = None
         self.current_ultra_values = None
-
+        
         
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
@@ -343,7 +345,7 @@ class StateMachine():
         self.desired_speed = desired_speed if desired_speed is not None else self.desired_speed
         self.signs_detected = signs_detected if signs_detected is not None else self.signs_detected
         self.obstacles_detected = obstacles_detected if obstacles_detected is not None else self.obstacles_detected
-        self.stopline_valid_distance = stopline_valid_distance if stopline_valid_distance is not None else self.stopline_valid_distance
+        self.stopline_distance = stopline_valid_distance
         self.current_ultra_values = ultra_values if ultra_values is not None else self.current_ultra_values
         # TODO: separar los objetos detectados en obstaculos y señales
         if self.current_ultra_values > 10000:
@@ -488,7 +490,7 @@ class StateMachine():
         self.e2 = 0
         self.e3 = 0
         self.stop_line = False
-        self.stopline_valid_distance = 0
+        self.stopline_distance = 999
 
     def on_roadmap_loaded(self): 
         path_file = "src/example/src/nodes_following/Competition_track_graph.graphml"
@@ -501,13 +503,14 @@ class StateMachine():
     def on_end(self): 
         self.set_speed(0)
         self.set_steer(0)
-    def on_lane_following(self): 
-        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed)
+    def on_lane_following(self):
+        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed/1000)
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
-        self.set_speed(100)
-        #if self.stopline_valid_distance < 0.9:
-        #    self.stop_line = True
+        self.set_speed(self.desired_speed)
+        if self.stopline_distance:
+            self.stop_line = True
+
         self.try_one_lane_following = None
 
     def on_signal_distance_threshold(self):
@@ -582,7 +585,7 @@ class StateMachine():
 
         if self.parking_step == 0:  
             self.set_speed(200)
-            speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.2)
+            speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed/1000)
             angle_ref = np.rad2deg(angle_ref)
             self.set_steer(angle_ref)
             if elapsed_time >= self.parking_duration[0]:
@@ -650,7 +653,7 @@ class StateMachine():
         current_time = time.time()  
         elapsed_time = current_time - self.parking_advance_start_time 
         self.set_speed(50)
-        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.05)
+        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed/1000)
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
         if elapsed_time > self.parking_advance_time:
@@ -737,7 +740,7 @@ class StateMachine():
         # TODO:revisa posicion actual, nodo actual y ve si cambia o no. al llegar al nodo final, levanta una bandera aunque ya deberia
         # haber detectado la senal de fin de highway POSIBLENTE NO SEA NECESARIO CONSULTAR NODOS
         # si da igual el tema de nodos, entonce esta funcion no sirve, cuando detecta, en on highway entry sign detected, aumenta velocidad, guardando la actual, y cuando detecta el fin, retoma la velocidad inicla
-        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.2)
+        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed/1000)
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
 
@@ -813,6 +816,11 @@ class StateMachine():
     def on_priority_sign_detected(self): 
         self.priority = True
     def on_stop_line_distance_threshold(self):
+        self.current_obstacle = next((obstacle for obstacle, valid_distance, _ in self.obstacles_detected if valid_distance), None)
+        self.current_sign = next((sign for sign, valid_distance, _ in self.signs_detected if valid_distance), None)
+        
+        #ver cooldown de senales y obstaculos
+
         current_time = time.time()
         last_execution_time = self.stop_line_cooldown.get(STOP_LINE_DISTANCE_THRESHOLD, 0)
         
@@ -901,7 +909,7 @@ class StateMachine():
                 self.car_avoiding_time = current_time 
         elif self.car_avoiding_step == 3:  
             self.set_speed(100)
-            speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, 0.1)
+            speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed/1000)
             angle_ref = np.rad2deg(angle_ref)
             self.set_steer(angle_ref)
             if elapsed_time >= self.parking_duration[3]:
@@ -965,6 +973,7 @@ class StateMachine():
     
     # 10 -> 1
     def set_speed(self, speed):
+        self.desired_speed = speed
         self.current_speed = int(speed)
 
     def set_steer(self, steer):

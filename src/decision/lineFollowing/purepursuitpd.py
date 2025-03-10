@@ -17,8 +17,6 @@ class Controller():
         self.prev_time = 0.0
 
     def get_control(self, e2, e3, curv, desired_speed, gains=None):
-        print("recibo:", desired_speed)
-        desired_speed = float(desired_speed)/10
         self.e2, self.e3 = e2, e3 # pp error, lateral error
         k2 , k3 = self.k2, self.k3
         if gains is not None: k1, k2, k3, k3D = gains
@@ -40,7 +38,6 @@ class Controller():
         #output    
         output_angle = ff_term - proportional_term - k2 * e2 - derivative_term
         output_speed = desired_speed - self.k1 * self.e1
-        print("angulo out:", output_angle)
-        output_angle = output_angle * 10
+        
         return output_speed, output_angle
         

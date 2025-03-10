@@ -84,17 +84,17 @@ if not os.path.exists(yolo_path):
 
 
 Dashboard = True
-Camera = False
+Camera = True
 Semaphores = False
 TrafficCommunication = False
-SerialHandler = False
+SerialHandler = True
 
 # ------ New component flags starts here ------#
 
 DecisionMaker = True
-LaneDetection = False
+LaneDetection = True
 ObjectDetection = False
-StopLineDetection = False
+StopLineDetection = True
 ImuGPS = False
 # ------ New component flags ends here ------#
 
@@ -141,7 +141,7 @@ if DecisionMaker:
     allProcesses.append(processDecisionMaker)
 
 if ImuGPS:
-    processimu_gps = processimu_gps(queueList, logging, debugging = True)
+    processimu_gps = processimu_gps(queueList, logging, debugging = False)
     allProcesses.append(processimu_gps)
 
 if LaneDetection:
