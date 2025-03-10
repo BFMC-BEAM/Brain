@@ -3,6 +3,21 @@ from src.decision.distance.distanceModule import DistanceModule
 from src.decision.lineFollowing.purepursuit import ControlSystem
 from src.templates.threadwithstop import ThreadWithStop
 from src.decision.decisionMaker.stateMachine import StateMachine
+from src.utils.constants import (
+        # ========================= SIGNS ==========================
+        STOP_SIGN,
+        PARKING_SIGN ,
+        CROSSWALK_SIGN,
+        PRIORITY_SIGN,
+        HIGHWAY_ENTRY_SIGN,
+        HIGHWAY_END_SIGN,
+        ONE_WAY_SIGN,
+        ROUNDABOUT_SIGN,
+        NO_ENTRY_SIGN,
+        # ========================= OBSTACLES ==========================
+        PEDESTRIAN,
+        CAR,
+        ROADBLOCK)
 import numpy as np
 
 from src.utils.messages.allMessages import (
@@ -45,6 +60,23 @@ class threadDecisionMaker(ThreadWithStop):
         self.subscribe()
         super(threadDecisionMaker, self).__init__()
 
+        self.signals = [
+            STOP_SIGN,
+            PARKING_SIGN ,
+            CROSSWALK_SIGN,
+            PRIORITY_SIGN,
+            HIGHWAY_ENTRY_SIGN,
+            HIGHWAY_END_SIGN,
+            ONE_WAY_SIGN,
+            ROUNDABOUT_SIGN,
+            NO_ENTRY_SIGN
+        ]
+        self.obstacles = [
+            PEDESTRIAN,
+            CAR,
+            ROADBLOCK
+        ]
+
         self.current_speed = 100
         self.current_steer = "0"
         self.current_direction = None
@@ -61,14 +93,30 @@ class threadDecisionMaker(ThreadWithStop):
 
             if curr_drivingMode == "auto":
                 self.current_deviation = self.subscribers["Deviation"].receive() or self.current_deviation
-                self.objects_detected = self.subscribers["CV_ObjectsDetected"].receive() or self.objects_detected
+                self.current_direction = self.subscribers["Direction"].receive() or self.current_direction
+                self.objects_detected = self.subscribers["CV_ObjectsDetected"].receive()
                 self.current_speed  = self.subscribers["CurrentSpeed"].receive() or self.current_speed
                 self.current_steer  = self.subscribers["CurrentSteer"].receive() or self.current_steer
-                self.direction = self.subscribers["Direction"].receive() or self.current_direction
                 ultra_values = self.subscribers["Ultra"].receive()          
-                print(self.objects_detected)
                 signs_detected = []
                 obstacles_detected = []
+                
+                
+                if self.objects_detected:
+                    decoded_objects = self._decode(self.objects_detected)
+                    for class_name, foward_distance, lateral_distance in decoded_objects:
+
+                        if class_name in self.signals:
+                            if foward_distance < 30:
+                                print(class_name, foward_distance)
+
+                                signs_detected.append((class_name, True, lateral_distance))
+                            else:
+                                signs_detected.append((class_name, False, lateral_distance))
+                        elif class_name in self.objects_detected:
+                            obstacles_detected.append((class_name, foward_distance, lateral_distance))
+                
+            
                 ultra_values = 0
                 stopline_valid_distance = 0
 
@@ -79,7 +127,9 @@ class threadDecisionMaker(ThreadWithStop):
                 target_speed = str(target_speed)
                 target_steer = str(target_steer)
                 if target_speed != self.current_speed:
-                    print("enviando velocidad: ", target_speed)
+                    #print("Devuelve: ", target_speed)
+
+                    #TODO: no deberia entrar varias veces con misma velocidad
                     self.speedSender.send(target_speed)
                     self.current_speed = target_speed
 
@@ -91,11 +141,6 @@ class threadDecisionMaker(ThreadWithStop):
                 target_speed =  self.subscribers["SpeedMotor"].receive() 
                 target_steer =  self.subscribers["SteerMotor"].receive() 
 
-                if (target_speed != None):
-                    print("manual vel: ", target_speed)
-                if (target_steer != None):
-                    print("manual steer: ", target_steer)
-
                 if target_speed is not None:
                     self.speedSender.send(str(target_speed))
                 if target_steer is not None:
@@ -106,7 +151,23 @@ class threadDecisionMaker(ThreadWithStop):
             #     self.steerSender.send("0")
             time.sleep(0.03)
 
+    def _decode(self, encoded_str):
+        # Dividimos la cadena por "*"
+        sign_strings = encoded_str.split("*")
+        
+        detected_signs = []
+        for sign_str in sign_strings:
+            # Dividimos cada elemento por coma
+            parts = sign_str.split(",")
+            class_name = parts[0]
+            valid_distance = parts[1] == 'True' if parts[1] != 'False' else False
+            lateral_distance = None if parts[2] == 'None' else float(parts[2])
             
+            # Agregamos la tupla a la lista
+            detected_signs.append((class_name, valid_distance, lateral_distance))
+        
+        return detected_signs
+
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""

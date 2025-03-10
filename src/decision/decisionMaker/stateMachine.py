@@ -310,8 +310,8 @@ class StateMachine():
         self.stopline_valid_distance = 0
         self.try_one_lane_following = None
 
-        # STANDART VAR
-        self.current_state = parking_find_slot #start_state
+        # INIT VAR
+        self.current_state = lane_following #start_state
         self.previous_state = None  
 
         self.current_speed = None
@@ -322,6 +322,7 @@ class StateMachine():
     #===================== STATE HANDLING =====================#
     def change_state(self, event):
         """Cambia el estado basándose en el evento."""
+
         if self.current_state in self.state_transitions and event in self.state_transitions[self.current_state]:
             new_state = self.state_transitions[self.current_state][event]
             if new_state != self.current_state:
@@ -352,9 +353,9 @@ class StateMachine():
         elif self.current_state == lane_following:
             if self.try_one_lane_following == True:
                 self.change_state(CONTINUE_LANE_FOLLOWING)
-            elif signs_detected and any(valid_distance for _, valid_distance in signs_detected):
+            elif signs_detected and any(valid_distance for _, valid_distance, _ in signs_detected):
                 self.change_state(SIGNAL_DISTANCE_THRESHOLD)
-            elif obstacles_detected and any(valid_distance for _, valid_distance in obstacles_detected):
+            elif obstacles_detected and any(valid_distance for _, valid_distance, _ in obstacles_detected):
                 self.change_state(OBSTACLE_DISTANCE_THRESHOLD)
             elif self.stop_line == True:
                 self.change_state(STOP_LINE_DISTANCE_THRESHOLD)
@@ -500,8 +501,7 @@ class StateMachine():
         self.set_speed(0)
         self.set_steer(0)
     def on_lane_following(self): 
-        
-        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, int(self.desired_speed))
+        speed, angle_ref = self.control_system.get_control(self.e2, self.e3, 0, self.desired_speed)
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
         self.set_speed(100)
@@ -510,7 +510,7 @@ class StateMachine():
         self.try_one_lane_following = None
 
     def on_signal_distance_threshold(self):
-        self.current_sign = next((sign for sign, valid_distance in self.signs_detected if valid_distance), None)
+        self.current_sign = next((sign for sign, valid_distance, _ in self.signs_detected if valid_distance), None)
         
         if self.current_sign:
             current_time = time.time()
@@ -740,7 +740,7 @@ class StateMachine():
         angle_ref = np.rad2deg(angle_ref)
         self.set_steer(angle_ref)
 
-        if any(sign == HIGHWAY_END_SIGN and valid_distance for sign, valid_distance in self.signs_detected):
+        if any(sign == HIGHWAY_END_SIGN and valid_distance for sign, valid_distance, _ in self.signs_detected):
                 self.highway_end = True
     def on_highway_end_sign_detected(self):
         self.highway_end = None
@@ -761,17 +761,17 @@ class StateMachine():
         self.current_sign = None
 
     def on_traffic_light_detected(self):
-        if any(sign == RED and valid_distance for sign, valid_distance in self.signs_detected):
+        if any(sign == RED and valid_distance for sign, valid_distance, _ in self.signs_detected):
                 self.traffic_state = RED
-        elif any(sign == YELLOW and valid_distance for sign, valid_distance in self.signs_detected):
+        elif any(sign == YELLOW and valid_distance for sign, valid_distance, _ in self.signs_detected):
                 self.traffic_state = YELLOW
-        elif any(sign == GREEN and valid_distance for sign, valid_distance in self.signs_detected):
+        elif any(sign == GREEN and valid_distance for sign, valid_distance, _ in self.signs_detected):
                 self.traffic_state = GREEN 
     def on_red_light_detected(self):
         self.red_finished = True
         self.set_speed(0)
     def on_red_light_waiting(self):
-        if any(sign == RED and valid_distance for sign, valid_distance in self.signs_detected):
+        if any(sign == RED and valid_distance for sign, valid_distance, _ in self.signs_detected):
             self.red_finished = False
     def on_red_light_finished(self):
         self.red_finished = None
@@ -780,7 +780,7 @@ class StateMachine():
         self.yellow_finished = False
 
     def on_yellow_light_waiting(self):
-        if any(sign == RED and valid_distance for sign, valid_distance in self.signs_detected):
+        if any(sign == RED and valid_distance for sign, valid_distance, _ in self.signs_detected):
             self.yellow_finished = True
     def on_yellow_light_finished(self):
         self.yellow_finished = None
@@ -846,13 +846,13 @@ class StateMachine():
         self.stop_line = None
 
     def on_obstacle_distance_threshold(self):
-        self.current_obstacle = next((obstacle for obstacle, valid_distance in self.obstacles_detected if valid_distance), None)
+        self.current_obstacle = next((obstacle for obstacle, valid_distance, _ in self.obstacles_detected if valid_distance), None)
 
     def on_pedestrian_detected(self):
         self.pedestrian_in_street = True
         self.set_speed(0)
     def on_pedestrian_waiting(self):
-        if any(obstacle == PEDESTRIAN and valid_distance for obstacle, valid_distance in self.obstacles_detected):
+        if any(obstacle == PEDESTRIAN and valid_distance for obstacle, valid_distance, _ in self.obstacles_detected):
             self.pedestrian_in_street = False
     def on_pedestrian_crossed(self):
         self.pedestrian_in_street = None

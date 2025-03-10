@@ -75,10 +75,10 @@ queueList = {
 }
 
 logging = logging.getLogger()
-
-yolo_path = "yolo_1st_model.pt"
+yolo_model_path = "yolo_1st_model.pt"
+yolo_path = "yolo_1st_model_ncnn_model"
 if not os.path.exists(yolo_path):
-    model = YOLO("yolo_1st_model.pt")
+    model = YOLO(yolo_model_path)
     model.export(format="ncnn")  
 
 Dashboard = True
@@ -89,8 +89,8 @@ SerialHandler = True
 
 # ------ New component flags starts here ------#
 DecisionMaker = True
-LaneDetection = True
-ObjectDetection = True
+LaneDetection = False
+ObjectDetection = False
 StopLineDetection = False
 ImuGPS = False
 # ------ New component flags ends here ------#

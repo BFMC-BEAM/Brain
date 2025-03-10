@@ -3,14 +3,16 @@ import numpy as np
 from ultralytics import YOLO
 import logging
 logging.getLogger("ultralytics").setLevel(logging.WARNING)  # Silencia los mensajes de YOLO
+
 class ObjectDetectionProcessor:
-    def __init__(self):
-        self.model_path = "best.pt"
-        self.model = YOLO(self.model_path, verbose=False)  
+    def __init__(self, model_path):
+        self.model = YOLO(model_path, verbose=False)  
         self.class_names = self.model.names
+        
+
         self.real_width = 0.06      # Real width of the stop sign (in meters, 6 cm in this case)
-        self.focal_length = 309     # Focal length of the Raspberry Pi V3 camera (in pixels)
-        self.conf_threshold = 0.4   # Minimum confidence threshold for valid detection
+        self.focal_length = 140     # Focal length of the Raspberry Pi V3 camera (in pixels)
+        self.conf_threshold = 0.7   # Minimum confidence threshold for valid detection
 
         # Handlers for traffic signals
         self.traffic_signals_handlers = {
@@ -48,9 +50,7 @@ class ObjectDetectionProcessor:
     def process_image(self, cv_image):
         image_width = cv_image.shape[1]
         results = self.model(cv_image)
-        detected_signs = []
-        detected_obstacles = []
-
+        obstcled_detected = []
         for result in results:
             boxes = result.boxes.xyxy.numpy().astype(int)
             confidences = result.boxes.conf.numpy().astype(float)
@@ -67,15 +67,16 @@ class ObjectDetectionProcessor:
 
                 if class_name in self.traffic_signals_handlers:
                     handler = self.traffic_signals_handlers[class_name]
-                    valid_distance, _ = handler(cv_image, bbox, confidence, image_width)
-                    detected_signs.append((class_name, valid_distance))
+                    distance_cm, _ = handler(cv_image, bbox, confidence, image_width)
+                    print(distance_cm)
+                    obstcled_detected.append((class_name, distance_cm, None))
 
                 elif class_name in self.obstacle_handlers:
                     handler = self.obstacle_handlers[class_name]
-                    valid_distance, lateral_distance = handler(cv_image, bbox, confidence, image_width)
-                    detected_signs.append((class_name, valid_distance, lateral_distance))
+                    distance_cm, lateral_distance = handler(cv_image, bbox, confidence, image_width)
+                    obstcled_detected.append((class_name, distance_cm, lateral_distance))
         
-        return cv_image, detected_signs
+        return cv_image, obstcled_detected
 
     def stop_handler(self, cv_image, bbox, confidence, image_width):
         return self.handle_sign(cv_image, bbox, confidence, 40, "STOP", image_width)
@@ -121,7 +122,7 @@ class ObjectDetectionProcessor:
         text += f"\nDist: {distance_cm:.2f}cm"
         text += f"\nLat: {lateral_distance:.2f}cm"
         self.draw_sign_values(cv_image, bbox, text, bbox_color)
-        return valid_distance, lateral_distance
+        return distance_cm, lateral_distance
 
     def draw_sign_values(self, cv_image, bbox, text, color):
         cv2.rectangle(cv_image, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 2)
@@ -130,3 +131,5 @@ class ObjectDetectionProcessor:
         for line in lines:
             cv2.putText(cv_image, line, (x, y), cv2.FONT_HERSHEY_PLAIN, 1, (255, 255, 255), 2)
             y -= 15  # Espacio entre líneas
+
+    
