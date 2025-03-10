@@ -166,6 +166,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
     width: 22%;
     height: auto;
 }
+.cluster-map-image { 
+    position: absolute;
+    top: 0%;
+    left: 36.8%;
+}
 
 .cluster-warning-light { 
     position: absolute;

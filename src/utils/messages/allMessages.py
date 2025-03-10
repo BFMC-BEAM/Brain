@@ -298,7 +298,7 @@ class CV_ObjectsDetected(Enum):
     Queue = "General"
     Owner = "ObjectDetection"
     msgID = 1
-    msgType = "list"
+    msgType = "str"
 
 ######################    From DecisionMaker  ###########################
 class SetSpeed(Enum):
@@ -318,4 +318,9 @@ class ImuGPSData(Enum):
     Queue = "General"
     Owner = "threadimu_gps"
     msgID = 1
+    msgType = "str"
+class MapImage(Enum):
+    Queue = "General"
+    Owner = "threadimu_gps"
+    msgID = 2
     msgType = "str"

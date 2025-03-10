@@ -62,7 +62,7 @@ from src.utils.ipManager.IpReplacement import IPManager
 from src.decision.decisionMaker.processDecisionMaker import processDecisionMaker
 from src.ComputerVision.LaneDetection.processLaneDetection import processLaneDetection
 from src.ComputerVision.StopLineDetection.processStopLineDetection import processStopLineDetection
-# from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
+from src.ComputerVision.ObjectDetection.processObjectDetection import processObjectDetection
 from src.hardware.imu_gps.processimu_gps import processimu_gps
 # ======================================== SETTING UP ====================================
 allProcesses = list()
@@ -76,23 +76,26 @@ queueList = {
 
 logging = logging.getLogger()
 
-yolo_path = "yolov5su_ncnn_model"
+yolo_model_path = "yolo_1st_model.pt"
+yolo_path = "yolo_1st_model_ncnn_model"
 if not os.path.exists(yolo_path):
-    model = YOLO("yolov5s.pt")
+    model = YOLO(yolo_model_path)
     model.export(format="ncnn")  
 
+
 Dashboard = True
-Camera = True
+Camera = False
 Semaphores = False
 TrafficCommunication = False
-SerialHandler = True
+SerialHandler = False
 
 # ------ New component flags starts here ------#
+
 DecisionMaker = True
-LaneDetection = True
+LaneDetection = False
 ObjectDetection = False
 StopLineDetection = False
-ImuGPS = True
+ImuGPS = False
 # ------ New component flags ends here ------#
 
 # ===================================== SETUP PROCESSES ==================================
